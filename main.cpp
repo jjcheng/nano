@@ -37,6 +37,7 @@ std::string wifiPassword = "";
 std::string remoteBaseUrl = "";
 std::string myIp = "";
 cv::VideoCapture cap;
+cv::QRCodeDetector qrDecoder;
 
 // Use sig_atomic_t for safe signal handling
 volatile sig_atomic_t interrupted = 0;
@@ -50,11 +51,21 @@ bool http_get_request(const std::string &host, const std::string &path);
 void setWifiCredentialFromText(const std::string& text);
 std::string detectQR();
 void openCamera();
+void cleanUp();
 
 // Signal handler: Only sets the flag.
 void interrupt_handler(int signum) {
     std::printf("Signal: %d\n", signum);
     interrupted = 1;
+}
+
+// clean up before exit
+void cleanUp() {
+    if(cap.isOpened()) {
+        cap.release();
+    }
+    std::printf("exit");
+    exit(0);
 }
 
 // Read WiFi config from file and set credentials.
@@ -116,23 +127,25 @@ void setWifiCredentialFromText(const std::string& text) {
 // Scan for a QR code and set WiFi credentials.
 void getWifiQR() {
     openCamera();
-    while (!interrupted && wifiSSID == "") {
-        std::cout << "Detecting QR code for wifi" << std::endl;
-        std::string content = detectQR();
-        if (content.empty()) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            continue;
+    while (wifiSSID == "") {
+        if (!interrupted) {
+            std::string content = detectQR();
+            if (content.empty()) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                continue;
+            }
+            std::cout << content << std::endl;
+            setWifiCredentialFromText(content);
         }
-        std::cout << content << std::endl;
-        setWifiCredentialFromText(content);
+        else {
+            cleanUp();
+        }
     }
 }
 
 // Detect and decode a QR code from the current camera frame.
 std::string detectQR() {
-    std::printf("Start CSIRead and init QR code detector\n");
-    cv::QRCodeDetector qrDecoder;
-    std::printf("QRCode decoder initialized\n");
+    std::printf("detecting qr code for wifi\n");
     cv::Mat bgr;
     cap >> bgr;
     cv::Mat bbox, rectifiedImage;

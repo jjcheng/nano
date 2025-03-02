@@ -34,4 +34,6 @@ pkg-config --list-all | grep opencv
 
 g++ -std=c++11 -g -o main main.cpp $(pkg-config --cflags --libs opencv4)
 
-### run ./main
+### run
+
+./main
