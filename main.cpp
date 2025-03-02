@@ -31,34 +31,38 @@
 #define NO_CHANGE_FRAME_LIMIT 30
 #define CHANGE_THRESHOLD_PERCENT 0.10
 
+// Global variables
 std::string wifiSSID = "";
 std::string wifiPassword = "";
 std::string remoteBaseUrl = "";
 std::string myIp = "";
 cv::VideoCapture cap;
 
-volatile uint8_t interrupted = 0;
+// Use sig_atomic_t for safe signal handling
+volatile sig_atomic_t interrupted = 0;
 
-// Signal handler to update the interrupted flag
-void interrupt_handler(int signum) {
-    printf("Signal: %d\n", signum);
-    interrupted = 1;
-}
-
-// Forward declarations for functions called before they are defined
+// Forward declarations
+std::string getIPAddress();
+bool detect(cv::Mat image);
+void sendImage();
 bool runCommand(const std::string& command);
 bool http_get_request(const std::string &host, const std::string &path);
 void setWifiCredentialFromText(const std::string& text);
 std::string detectQR();
 void openCamera();
 
-// Read wifi config from file and set credentials
+// Signal handler: Only sets the flag.
+void interrupt_handler(int signum) {
+    std::printf("Signal: %d\n", signum);
+    interrupted = 1;
+}
+
+// Read WiFi config from file and set credentials.
 void setWifiConfidentials() {
     std::ifstream file(WIFI_CONFIG_FILE_PATH);
     if (!file.good()) {
         return;
     }
-    // Read entire file content into a string
     std::stringstream buffer;
     buffer << file.rdbuf();
     std::string text = buffer.str();
@@ -66,12 +70,12 @@ void setWifiConfidentials() {
     setWifiCredentialFromText(text);
 }
 
-// Parse wifi credentials from text and write to file
+// Parse WiFi credentials from text and write to file.
 void setWifiCredentialFromText(const std::string& text) {
     std::stringstream ss(text);
     std::string line;
-    while (std::getline(ss, line)) {  // Read line by line
-        size_t pos = line.find(':');  // Find the first ':'
+    while (!interrupted && std::getline(ss, line)) {
+        size_t pos = line.find(':');
         if (pos != std::string::npos) {
             std::string key = line.substr(0, pos);
             std::string value = line.substr(pos + 1);
@@ -84,14 +88,11 @@ void setWifiCredentialFromText(const std::string& text) {
             }
         }
     }
-    std::cout << "SSID: " << wifiSSID << std::endl;
-    std::cout << "PASSWORD: " << wifiPassword << std::endl;
-    std::cout << "REMOTEBASEURL: " << remoteBaseUrl << std::endl;
-    
-    // Prepare configuration text
+    std::cout << "SSID: " << wifiSSID << "\nPASSWORD: " << wifiPassword
+              << "\nREMOTEBASEURL: " << remoteBaseUrl << std::endl;
+
     std::string wifiConfig = "ssid:" + wifiSSID + "\npassword:" + wifiPassword + "\nremoteBaseUrl:" + remoteBaseUrl;
-    
-    // Create the config file if it doesn't exist
+    // Create the config file if it doesn't exist.
     std::ifstream infile(WIFI_CONFIG_FILE_PATH);
     if (!infile.good()) {
         std::ofstream outfile(WIFI_CONFIG_FILE_PATH);
@@ -102,24 +103,23 @@ void setWifiCredentialFromText(const std::string& text) {
         outfile.close();
         std::cout << "File created successfully: " << WIFI_CONFIG_FILE_PATH << std::endl;
     }
-    
-    // Write updated configuration to file using C-style I/O
-    FILE *fp = fopen(WIFI_CONFIG_FILE_PATH, "w");
-    if (!fp) {
+    // Write updated configuration using C++ streams
+    std::ofstream ofs(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
+    if (!ofs) {
         std::cerr << "Failed to open file: " << WIFI_CONFIG_FILE_PATH << std::endl;
         return;
     }
-    fwrite(wifiConfig.c_str(), 1, wifiConfig.size(), fp);
-    fclose(fp);
+    ofs << wifiConfig;
+    ofs.close();
 }
 
-// Use the camera to scan for a QR code and set wifi credentials from its content
+// Scan for a QR code and set WiFi credentials.
 void getWifiQR() {
     openCamera();
-    while (wifiSSID == "") {
+    while (!interrupted && wifiSSID == "") {
         std::cout << "Detecting QR code for wifi" << std::endl;
         std::string content = detectQR();
-        if (content == "") {
+        if (content.empty()) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
@@ -128,11 +128,11 @@ void getWifiQR() {
     }
 }
 
-// Detect and decode a QR code from the current camera frame
+// Detect and decode a QR code from the current camera frame.
 std::string detectQR() {
-    printf("Start CSIRead and init QR code detector\n");
+    std::printf("Start CSIRead and init QR code detector\n");
     cv::QRCodeDetector qrDecoder;
-    printf("QRCode decoder initialized\n");
+    std::printf("QRCode decoder initialized\n");
     cv::Mat bgr;
     cap >> bgr;
     cv::Mat bbox, rectifiedImage;
@@ -140,28 +140,25 @@ std::string detectQR() {
     return data;
 }
 
-// Open the default camera and skip a few frames to allow it to warm up
+// Open the default camera and warm it up.
 void openCamera() {
-    if (!cap.isOpened()) {
-        std::cout << "Opening camera" << std::endl;
-        cap.open(0); // Open the default camera
-        if (cap.isOpened()) {
-            cv::Mat bgr;
-            for (int i = 0; i < 30; i++) {
-                cap >> bgr;
-            }
+    while (!interrupted && !cap.isOpened()) {
+        std::cout << "Opening camera..." << std::endl;
+        cap.open(0);
+        if (!cap.isOpened()) {
+            std::cerr << "Camera open failed, retrying in 3 seconds..." << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+        } else {
+            cv::Mat dummy;
+            // Warm up: skip initial frames.
+            for (int i = 0; i < 30; ++i)
+                cap >> dummy;
+            std::cout << "Camera opened successfully!" << std::endl;
         }
-    }
-    if (cap.isOpened()) {
-        std::cout << "Camera opened successfully!" << std::endl;
-    } else {
-        std::cerr << "Camera open failed!" << std::endl;
-        sleep(3);
-        openCamera();  // Retry opening the camera
     }
 }
 
-// Set camera resolution. If max is true, set to high resolution; otherwise, set to low resolution.
+// Set camera resolution.
 bool setCameraResolution(bool max) {
     if (max) {
         cap.set(cv::CAP_PROP_FRAME_WIDTH, 2560);
@@ -173,26 +170,14 @@ bool setCameraResolution(bool max) {
     return true;
 }
 
-// Connect to the WiFi using system commands and update the IP address.
+// Connect to WiFi using system commands.
 void connectToWifi() {
     std::cout << "Connecting to " << wifiSSID << std::endl;
     std::string configCmd = "echo 'network={\n    ssid=\"" + wifiSSID + "\"\n    psk=\"" + wifiPassword + "\"\n}' > /etc/wpa_supplicant.conf";
-    if (!runCommand(configCmd)) {
-        wifiSSID = "";
-        getWifiQR();
-        return;
-    }
-    if (!runCommand("ifconfig wlan0 up")) {
-        wifiSSID = "";
-        getWifiQR();
-        return;
-    }
-    if (!runCommand("wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant.conf")) {
-        wifiSSID = "";
-        getWifiQR();
-        return;
-    }
-    if (!runCommand("udhcpc -i wlan0")) {
+    if (!runCommand(configCmd) ||
+        !runCommand("ifconfig wlan0 up") ||
+        !runCommand("wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant.conf") ||
+        !runCommand("udhcpc -i wlan0")) {
         wifiSSID = "";
         getWifiQR();
         return;
@@ -201,7 +186,7 @@ void connectToWifi() {
     std::cout << "Connected to " << wifiSSID << " with IP " << myIp << std::endl;
 }
 
-// Get the IP address of interface "wlan0"
+// Get the IP address of interface "wlan0".
 std::string getIPAddress() {
     struct ifaddrs *ifaddr, *ifa;
     char ip[INET_ADDRSTRLEN] = {0};
@@ -222,23 +207,25 @@ std::string getIPAddress() {
     return std::string(ip);
 }
 
-// Connect to the remote server by pinging a URL; retry on failure.
+// Connect to the remote server by pinging a URL; use a loop instead of recursion.
 void connectToRemote() {
-    std::string url = remoteBaseUrl + "/ping?id=" + myIp;
-    std::cout << "Connecting to remote URL " << url << std::endl;
-    if (!http_get_request(remoteBaseUrl, "/ping?id=" + myIp)) {
-        std::cerr << "Failed to connect to remote" << std::endl;
-        if (getIPAddress() == "") {
-            connectToWifi();
+    while (!interrupted) {
+        std::string url = remoteBaseUrl + "/ping?id=" + myIp;
+        std::cout << "Connecting to remote URL " << url << std::endl;
+        if (http_get_request(remoteBaseUrl, "/ping?id=" + myIp)) {
+            std::cout << "Successfully connected to remote" << std::endl;
+            break;
+        } else {
+            std::cerr << "Failed to connect to remote" << std::endl;
+            if (getIPAddress().empty()) {
+                connectToWifi();
+            }
+            std::this_thread::sleep_for(std::chrono::seconds(3));
         }
-        sleep(3);
-        connectToRemote();
-    } else {
-        std::cout << "Successfully connected to remote" << std::endl;
     }
 }
 
-// Run a system command and return true if it executes successfully.
+// Run a system command and return true if successful.
 bool runCommand(const std::string& command) {
     int status = system(command.c_str());
     if (status != 0) {
@@ -248,13 +235,12 @@ bool runCommand(const std::string& command) {
     return true;
 }
 
-// Make an HTTP GET request to the specified host and path.
+// Make an HTTP GET request.
 bool http_get_request(const std::string &host, const std::string &path) {
     struct addrinfo hints{}, *res;
     int sockfd;
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
-
     if (getaddrinfo(host.c_str(), "80", &hints, &res) != 0) {
         std::cerr << "Failed to resolve host: " << host << std::endl;
         return false;
@@ -283,7 +269,7 @@ bool http_get_request(const std::string &host, const std::string &path) {
     }
     char buffer[BUFFER_SIZE];
     ssize_t bytesReceived;
-    while ((bytesReceived = recv(sockfd, buffer, BUFFER_SIZE - 1, 0)) > 0) {
+    while (!interrupted && (bytesReceived = recv(sockfd, buffer, BUFFER_SIZE - 1, 0)) > 0) {
         buffer[bytesReceived] = '\0';
         std::cout << buffer;
     }
@@ -293,7 +279,6 @@ bool http_get_request(const std::string &host, const std::string &path) {
 
 // Main processing loop: compares frames and triggers sending image if change is detected.
 void loop() {
-    int count = 0;
     int changedThreshold = 0;
     int noChangeCount = 0;
     cv::Mat previousNoChangeFrame;
@@ -320,19 +305,16 @@ void loop() {
         int nonZeroCount = cv::countNonZero(thresh);
         if (nonZeroCount < changedThreshold) {
             noChangeCount++;
-            if (noChangeCount > NO_CHANGE_FRAME_LIMIT) {
-                continue;
-            } else if (noChangeCount == NO_CHANGE_FRAME_LIMIT) {
-                count++;
+            if (noChangeCount == NO_CHANGE_FRAME_LIMIT) {
                 std::cout << "No significant change" << std::endl;
-                if (detect(img)) {
-                    // Trigger sending image if detection returns true
-                    // (Note: detect() currently always returns false)
+                if (detect(img)) { // detect() currently returns false
                     sendImage();
                 }
+            } else if (noChangeCount > NO_CHANGE_FRAME_LIMIT) {
+                continue;
             }
         } else {
-            int percent = int(float(nonZeroCount) / float(img.cols * img.rows) * 100);
+            int percent = int((float(nonZeroCount) / float(img.cols * img.rows)) * 100);
             std::cout << "Change detected: " << percent << "%" << std::endl;
             previousNoChangeFrame = frame;
             noChangeCount = 0;
@@ -341,12 +323,12 @@ void loop() {
     cap.release();
 }
 
-// Dummy detect function (currently always returns false)
+// Dummy detect function (placeholder for YOLO or similar).
 bool detect(cv::Mat image) {
     return false;
 }
 
-// Upload an image by saving it, encoding it to JPEG, and sending via HTTP POST.
+// Upload an image by saving it, encoding to JPEG, and sending via HTTP POST.
 void sendImage() {
     std::cout << "Sending image to remote" << std::endl;
     if (!setCameraResolution(true)) {
@@ -364,7 +346,6 @@ void sendImage() {
         return;
     }
     if (imgData.empty()) return;
-
     std::string uploadUrl = remoteBaseUrl + "/upload";
     std::ostringstream request;
     request << "POST " << uploadUrl << " HTTP/1.1\r\n"
@@ -372,7 +353,6 @@ void sendImage() {
             << "Content-Type: application/octet-stream\r\n"
             << "Content-Length: " << imgData.size() << "\r\n"
             << "Connection: close\r\n\r\n";
-
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         std::cerr << "Error: Cannot create socket!" << std::endl;
@@ -381,7 +361,6 @@ void sendImage() {
     struct sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(8080);
-    // NOTE: inet_addr expects an IP address string. Ensure remoteBaseUrl is an IP address.
     serverAddr.sin_addr.s_addr = inet_addr(remoteBaseUrl.c_str());
     if (connect(sock, reinterpret_cast<struct sockaddr*>(&serverAddr), sizeof(serverAddr)) < 0) {
         std::cerr << "Error: Cannot connect to server!" << std::endl;
@@ -400,22 +379,18 @@ void sendImage() {
     close(sock);
 }
 
-// Sleep for a given number of seconds (wrapper for std::this_thread::sleep_for)
-void sleep(int seconds) {
-    std::this_thread::sleep_for(std::chrono::seconds(seconds));
-}
-
 int main() {
+    // Set up signal handler.
     signal(SIGINT, interrupt_handler);
 
-    // Read wifi credentials and remote base URL from saved file
+    // Read WiFi credentials and remote base URL.
     setWifiConfidentials();
-    // If no SSID is set, scan QR code
+    // If no SSID is set, scan QR code.
     getWifiQR();
-    // Connect to wifi and remote server
+    // Connect to WiFi and remote server.
     connectToWifi();
     connectToRemote();
-    // Start the main processing loop
+    // Start the main processing loop.
     loop();
     return 0;
 }
