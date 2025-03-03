@@ -35,6 +35,12 @@
 22. fix all the UMat errors
 23. make install
 
+## CVI
+
+1. tar xvzf ../files/cvitek_tdl_sdk_1228.tar.gz
+2. export COMPILER=/Users/jj/Desktop/Development/nano/libs/host-tools/gcc/riscv64-linux-musl-x86_64/bin
+3. export SDK_PATH=/Users/jj/Desktop/Development/nano/libs/cvitek_tdl_sdk
+
 ## Build main app
 
 1. mkdir build
