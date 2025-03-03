@@ -21,6 +21,7 @@
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
+#include "detect.h"
 
 #define BUFFER_SIZE 4096
 #define WIFI_CONFIG_FILE_PATH "/root/wifi_config"
@@ -336,9 +337,9 @@ void loop() {
     cap.release();
 }
 
-// Dummy detect function (placeholder for YOLO or similar).
+// detect the objects from the image using detect.c
 bool detect(cv::Mat image) {
-    return false;
+    return run_detection(image, "xxx.cvimodel");
 }
 
 // Upload an image by saving it, encoding to JPEG, and sending via HTTP POST.
@@ -395,7 +396,6 @@ void sendImage() {
 int main() {
     // Set up signal handler.
     signal(SIGINT, interrupt_handler);
-
     // Read WiFi credentials and remote base URL.
     setWifiConfidentials();
     // If no SSID is set, scan QR code.
