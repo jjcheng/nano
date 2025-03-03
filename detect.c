@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <chrono>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -116,12 +115,9 @@ bool run_detection(cv::Mat image, const char* model_path) {
 
     // Run detection
     cvtdl_object_t obj_meta = {0};
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     CVI_TDL_YOLOV8_Detection(tdl_handle, &bg, &obj_meta);
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
-    double fps = 1 / std::chrono::duration<double>(end - begin).count();
-    printf("\n\n----------\nDetection FPS: %lf\nDetected objects count: %d\n\n", fps, obj_meta.size);
+    printf("\n\n----------\nDetected objects count: %d\n\n", obj_meta.size);
 
     for (uint32_t i = 0; i < obj_meta.size; i++) {
         printf("x1 = %lf, y1 = %lf, x2 = %lf, y2 = %lf, cls: %d, score: %lf\n", 
