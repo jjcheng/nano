@@ -32,7 +32,7 @@ pkg-config --list-all | grep opencv
 
 ### compile the app, replace main with the file name
 
-g++ -std=c++11 -g -o main main.cpp $(pkg-config --cflags --libs opencv4)
+g++ -std=c++11 -g -o main main.cpp detect.c $(pkg-config --cflags --libs opencv4)
 
 ### run
 

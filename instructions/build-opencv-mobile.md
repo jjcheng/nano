@@ -1,6 +1,6 @@
-## Cross compile opencv mobile with object detect
+## Cross compile in ubuntu
 
-### Do in ubuntu in nano folder
+### Build custom opencv mobile
 
 1. mkdir libs
 2. cd libs
@@ -34,25 +34,15 @@
 21. make -j18
 22. fix all the UMat errors
 23. make install
-24. cd install
-25. check for the folders: bin, include, lib, share
-26. cd ~/Desktop/Development/opencv-mobile
-27. mkdir test
-28. cd test
-29. mkdir libs
-30. cd libs
-31. mkdir opencv-mobile-4.10.0-build
-32. cd ~/Desktop/Development/opencv-mobile/opencv-mobile-4.10.0/build/install
-33. cp -R \* ~/Desktop/Development/opencv-mobile/test/libs/opencv-mobile-4.10.0-build
-34. copy main.cpp, CMakeLists.txt to ~/Desktop/Development/opencv-mobile/test
-35. export COMPILER=~/Desktop/Development/host-tools/gcc/riscv64-linux-musl-x86_64/bin
-36. edit CMakeLists.txt set(OpenCV_DIR "~/Desktop/Development/opencv-mobile/test/libs/opencv-mobile-4.10.0-build/lib/cmake/opencv4")
-37. cd ~/Desktop/Development/opencv-mobile/test/
-38. mkdir build
-39. cd build
-40. cmake ..
-41. make
-42. scp XXX root@<nano ip address>:/root
+
+## Build main app
+
+1. mkdir build
+2. cd build
+3. export COMPILER=/Users/jj/Desktop/Development/host-tools/gcc/riscv64-linux-musl-x86_64/bin
+4. cmake ..
+5. make
+6. scp Jotter root@<nano ip address>:/root
 
 ## clean make
 
