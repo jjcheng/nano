@@ -9,17 +9,17 @@
 5. rm opencv-mobile-4.10.0.zip
 6. cd opencv-mobile-4.10.0
 7. patch -p1 -i ../../files/patches/opencv-4.10.0-no-atomic.patch
-8. patch -p1 -i ../../files/patches/pins.patch
-9. cd ../
-10. cp ../files/fixes/options.txt opencv-mobile-4.10.0/options.txt
-11. cp ../files/fixes/aruco_board.cpp opencv-mobile-4.10.0/modules/objdetect/src/aruco/aruco_board.cpp
-12. cp ../files/fixes/aruco_utils.cpp opencv-mobile-4.10.0/modules/objdetect/src/aruco/aruco_utils.cpp
-13. cp ../files/fixes/cascadedetect.cpp opencv-mobile-4.10.0/modules/objdetect/src/cascadedetect.cpp
-14. cp ../files/fixes/cascadedetect.hpp opencv-mobile-4.10.0/modules/objdetect/src/cascadedetect.hpp
-15. cp ../files/fixes/chessboard.cpp opencv-mobile-4.10.0/modules/calib3d/src/chessboard.cpp
-16. cp ../files/fixes/hog.cpp opencv-mobile-4.10.0/modules/objdetect/src/hog.cpp
-17. cp ../files/fixes/matchers.cpp opencv-mobile-4.10.0/modules/features2d/src/matchers.cpp
-18. cp ../files/fixes/objdetect.hpp opencv-mobile-4.10.0/modules/objdetect/include/opencv2/objdetect.hpp
+8. cd ../
+9. cp ../files/options.txt opencv-mobile-4.10.0/options.txt
+10. cp ../files/capture_cvi.cpp opencv-mobile-4.10.0/modules/highgui/src/capture_cvi.cpp
+11. cp ../files/aruco_board.cpp opencv-mobile-4.10.0/modules/objdetect/src/aruco/aruco_board.cpp
+12. cp ../files/aruco_utils.cpp opencv-mobile-4.10.0/modules/objdetect/src/aruco/aruco_utils.cpp
+13. cp ../files/cascadedetect.cpp opencv-mobile-4.10.0/modules/objdetect/src/cascadedetect.cpp
+14. cp ../files/cascadedetect.hpp opencv-mobile-4.10.0/modules/objdetect/src/cascadedetect.hpp
+15. cp ../files/chessboard.cpp opencv-mobile-4.10.0/modules/calib3d/src/chessboard.cpp
+16. cp ../files/hog.cpp opencv-mobile-4.10.0/modules/objdetect/src/hog.cpp
+17. cp ../files/matchers.cpp opencv-mobile-4.10.0/modules/features2d/src/matchers.cpp
+18. cp ../files/objdetect.hpp opencv-mobile-4.10.0/modules/objdetect/include/opencv2/objdetect.hpp
 19. wget https://sophon-file.sophon.cn/sophon-prod-s3/drive/23/03/07/16/host-tools.tar.gz
 20. tar xvf host-tools.tar.gz
 21. rm host-tools.tar.gz
