@@ -488,7 +488,7 @@ int main() {
     signal(SIGINT, interruptHandler);
     // Initialize YOLOv8 model before detection.
     if (!initModel()) {
-        printf("Yolo model initialization failed");
+        printf("Yolo model initialization failed\n");
         cleanUp();
     }
     // Read WiFi credentials and remote base URL.
