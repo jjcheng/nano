@@ -21,16 +21,34 @@
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
-#include "detect.h"
+#include <stdlib.h>
+#include <time.h>
+#include <functional>
+#include <map>
+
+// custom includes
+#include "core/cvi_tdl_types_mem_internal.h"
+#include "core/utils/vpss_helper.h"
+#include "cvi_tdl.h"
+#include "cvi_tdl_media.h"
 
 #define BUFFER_SIZE 4096
 #define WIFI_CONFIG_FILE_PATH "/root/wifi_config"
-#define MODEL_FILE_PATH "/root/models/model.mud"
 #define SAVE_IMAGE_PATH "/root/captured.jpg"
 #define CONF_THRESHOLD 0.5
 #define IOU_THRESHOLD 0.5
 #define NO_CHANGE_FRAME_LIMIT 30
 #define CHANGE_THRESHOLD_PERCENT 0.10
+
+// YOLO defines
+#define MODEL_SCALE 0.0039216
+#define MODEL_MEAN 0.0
+#define MODEL_CLASS_CNT 4
+#define MODEL_THRESH 0.5
+#define MODEL_NMS_THRESH 0.5
+#define MODEL_FILE_PATH "/root/models/model.cvimodel"
+#define BLUE_MAT cv::Scalar(255, 0, 0)
+#define RED_MAT cv::Scalar(0, 0, 255)
 
 // Global variables
 std::string wifiSSID = "";
@@ -39,33 +57,40 @@ std::string remoteBaseUrl = "";
 std::string myIp = "";
 cv::VideoCapture cap;
 cv::QRCodeDetector qrDecoder;
+cvitdl_handle_t tdl_handle = NULL;
 
 // Use sig_atomic_t for safe signal handling
 volatile sig_atomic_t interrupted = 0;
 
 // Forward declarations
 std::string getIPAddress();
-bool detect(cv::Mat image);
+bool detect(cv::Mat &image);
 void sendImage();
 bool runCommand(const std::string& command);
-bool http_get_request(const std::string &host, const std::string &path);
+bool httpGetRequest(const std::string &host, const std::string &path);
 void setWifiCredentialFromText(const std::string& text);
 std::string detectQR();
 void openCamera();
 void cleanUp();
+bool initModel();
+void connectToDevice();
+void loop();
 
-// Signal handler: Only sets the flag.
-void interrupt_handler(int signum) {
+// Signal handler: only sets the flag.
+void interruptHandler(int signum) {
     std::printf("Signal: %d\n", signum);
     interrupted = 1;
 }
 
-// clean up before exit
+// Clean up resources before exit.
 void cleanUp() {
-    if(cap.isOpened()) {
+    if (cap.isOpened()) {
         cap.release();
     }
-    std::printf("exit");
+    if (tdl_handle != NULL) {
+        CVI_TDL_DestroyHandle(tdl_handle);
+    }
+    std::printf("Exiting...\n");
     exit(0);
 }
 
@@ -82,7 +107,7 @@ void setWifiConfidentials() {
     setWifiCredentialFromText(text);
 }
 
-// Parse WiFi credentials from text and write to file.
+// Parse WiFi credentials from text and update the config file.
 void setWifiCredentialFromText(const std::string& text) {
     std::stringstream ss(text);
     std::string line;
@@ -95,7 +120,7 @@ void setWifiCredentialFromText(const std::string& text) {
                 wifiSSID = value;
             } else if (key == "password") {
                 wifiPassword = value;
-            } else {
+            } else if (key == "remoteBaseUrl") {
                 remoteBaseUrl = value;
             }
         }
@@ -115,7 +140,7 @@ void setWifiCredentialFromText(const std::string& text) {
         outfile.close();
         std::cout << "File created successfully: " << WIFI_CONFIG_FILE_PATH << std::endl;
     }
-    // Write updated configuration using C++ streams
+    // Write updated configuration.
     std::ofstream ofs(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
     if (!ofs) {
         std::cerr << "Failed to open file: " << WIFI_CONFIG_FILE_PATH << std::endl;
@@ -128,29 +153,28 @@ void setWifiCredentialFromText(const std::string& text) {
 // Scan for a QR code and set WiFi credentials.
 void getWifiQR() {
     openCamera();
-    while (wifiSSID == "") {
-        if (!interrupted) {
-            std::string content = detectQR();
-            if (content.empty()) {
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-                continue;
-            }
-            std::cout << content << std::endl;
-            setWifiCredentialFromText(content);
+    while (wifiSSID.empty() && !interrupted) {
+        std::string content = detectQR();
+        if (content.empty()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
         }
-        else {
-            cleanUp();
-        }
+        std::cout << "QR Content: " << content << std::endl;
+        setWifiCredentialFromText(content);
+    }
+    if (interrupted) {
+        cleanUp();
     }
 }
 
 // Detect and decode a QR code from the current camera frame.
 std::string detectQR() {
-    std::printf("detecting qr code for wifi\n");
-    cv::Mat bgr;
-    cap >> bgr;
+    std::printf("Detecting QR code for WiFi\n");
+    cv::Mat frame;
+    cap >> frame;
+    if (frame.empty()) return "";
     cv::Mat bbox, rectifiedImage;
-    std::string data = qrDecoder.detectAndDecode(bgr, bbox, rectifiedImage);
+    std::string data = qrDecoder.detectAndDecode(frame, bbox, rectifiedImage);
     return data;
 }
 
@@ -165,7 +189,7 @@ void openCamera() {
         } else {
             cv::Mat dummy;
             // Warm up: skip initial frames.
-            for (int i = 0; i < 30; ++i)
+            for (int i = 0; i < 30 && !interrupted; ++i)
                 cap >> dummy;
             std::cout << "Camera opened successfully!" << std::endl;
         }
@@ -221,12 +245,12 @@ std::string getIPAddress() {
     return std::string(ip);
 }
 
-// Connect to the remote server by pinging a URL; use a loop instead of recursion.
-void connectToRemote() {
+// Connect to the remote server by pinging a URL.
+void connectToDevice() {
     while (!interrupted) {
         std::string url = remoteBaseUrl + "/ping?id=" + myIp;
         std::cout << "Connecting to remote URL " << url << std::endl;
-        if (http_get_request(remoteBaseUrl, "/ping?id=" + myIp)) {
+        if (httpGetRequest(remoteBaseUrl, "/ping?id=" + myIp)) {
             std::cout << "Successfully connected to remote" << std::endl;
             break;
         } else {
@@ -250,7 +274,7 @@ bool runCommand(const std::string& command) {
 }
 
 // Make an HTTP GET request.
-bool http_get_request(const std::string &host, const std::string &path) {
+bool httpGetRequest(const std::string &host, const std::string &path) {
     struct addrinfo hints{}, *res;
     int sockfd;
     hints.ai_family = AF_INET;
@@ -302,47 +326,108 @@ void loop() {
         cap >> img;
         if (img.empty())
             continue;
-
+        
         if (changedThreshold == 0) {
-            changedThreshold = int(img.cols * img.rows * CHANGE_THRESHOLD_PERCENT);
+            changedThreshold = static_cast<int>(img.cols * img.rows * CHANGE_THRESHOLD_PERCENT);
         }
-        cv::Mat frame;
-        cv::cvtColor(img, frame, cv::COLOR_BGR2GRAY);
+        cv::Mat grayFrame;
+        cv::cvtColor(img, grayFrame, cv::COLOR_BGR2GRAY);
         if (previousNoChangeFrame.empty()) {
-            previousNoChangeFrame = frame;
+            previousNoChangeFrame = grayFrame.clone();
             continue;
         }
-        cv::Mat diff;
-        cv::absdiff(frame, previousNoChangeFrame, diff);
-        cv::Mat thresh;
+        cv::Mat diff, thresh;
+        cv::absdiff(grayFrame, previousNoChangeFrame, diff);
         cv::threshold(diff, thresh, 30, 255, cv::THRESH_BINARY);
         int nonZeroCount = cv::countNonZero(thresh);
         if (nonZeroCount < changedThreshold) {
             noChangeCount++;
             if (noChangeCount == NO_CHANGE_FRAME_LIMIT) {
                 std::cout << "No significant change" << std::endl;
-                if (detect(img)) { // detect() currently returns false
+                if (detect(img)) {
                     sendImage();
                 }
             } else if (noChangeCount > NO_CHANGE_FRAME_LIMIT) {
                 continue;
             }
         } else {
-            int percent = int((float(nonZeroCount) / float(img.cols * img.rows)) * 100);
+            int percent = static_cast<int>((static_cast<float>(nonZeroCount) / (img.cols * img.rows)) * 100);
             std::cout << "Change detected: " << percent << "%" << std::endl;
-            previousNoChangeFrame = frame;
+            previousNoChangeFrame = grayFrame.clone();
             noChangeCount = 0;
         }
     }
     cap.release();
 }
 
-// detect the objects from the image using detect.c
-bool detect(cv::Mat image) {
-    return run_detection(image, "xxx.cvimodel");
+// Initialize YOLOv8 model and set parameters.
+bool initModel() {
+    CVI_S32 ret = CVI_TDL_CreateHandle(&tdl_handle);
+    if (ret != CVI_SUCCESS) {
+        printf("Create tdl handle failed with %#x!\n", ret);
+        return false;
+    }
+    // Setup preprocessing parameters.
+    YoloPreParam preprocess_cfg = CVI_TDL_Get_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
+    for (int i = 0; i < 3; i++) {
+        printf("assign val %d \n", i);
+        preprocess_cfg.factor[i] = MODEL_SCALE;
+        preprocess_cfg.mean[i] = MODEL_MEAN;
+    }
+    preprocess_cfg.format = PIXEL_FORMAT_RGB_888_PLANAR;
+    printf("Setting YOLOv8 preprocess parameters\n");
+    ret = CVI_TDL_Set_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, preprocess_cfg);
+    if (ret != CVI_SUCCESS) {
+        printf("Cannot set YOLOv8 preprocess parameters %#x\n", ret);
+        return false;
+    }
+    // Setup algorithm parameters.
+    YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
+    yolov8_param.cls = MODEL_CLASS_CNT;
+    printf("Setting YOLOv8 algorithm parameters\n");
+    ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
+    if (ret != CVI_SUCCESS) {
+        printf("Cannot set YOLOv8 algorithm parameters %#x\n", ret);
+        return false;
+    }
+    // Set detection thresholds.
+    CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_THRESH);
+    CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_NMS_THRESH);
+    printf("YOLOv8 parameters setup success!\n");
+    // Open the model.
+    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_FILE_PATH);
+    if (ret != CVI_SUCCESS) {
+        printf("Open model failed with %#x!\n", ret);
+        return false;
+    }
+    return true;
 }
 
-// Upload an image by saving it, encoding to JPEG, and sending via HTTP POST.
+// Perform object detection on the image using YOLOv8.
+// Returns true if one or more objects are detected.
+bool detect(cv::Mat &image) {
+    printf("Performing detection...\n");
+    // Convert cv::Mat data pointer to VIDEO_FRAME_INFO_S pointer.
+    // (Adjust this cast as required by your custom API.)
+    VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image.data);
+    cvtdl_object_t obj_meta = {0};
+    CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
+    // Draw bounding boxes on the image.
+    for (uint32_t i = 0; i < obj_meta.size; i++) {
+        cv::Rect r(static_cast<int>(obj_meta.info[i].bbox.x1),
+                   static_cast<int>(obj_meta.info[i].bbox.y1),
+                   static_cast<int>(obj_meta.info[i].bbox.x2 - obj_meta.info[i].bbox.x1),
+                   static_cast<int>(obj_meta.info[i].bbox.y2 - obj_meta.info[i].bbox.y1));
+        if (obj_meta.info[i].classes == 0)
+            cv::rectangle(image, r, BLUE_MAT, 1, 8, 0);
+        else if (obj_meta.info[i].classes == 1)
+            cv::rectangle(image, r, RED_MAT, 1, 8, 0);
+    }
+    // Return true if any object was detected.
+    return (obj_meta.size > 0);
+}
+
+// Upload an image by saving, encoding to JPEG, and sending via HTTP POST.
 void sendImage() {
     std::cout << "Sending image to remote" << std::endl;
     if (!setCameraResolution(true)) {
@@ -350,6 +435,10 @@ void sendImage() {
     }
     cv::Mat frame;
     cap >> frame;
+    if (frame.empty()) {
+        std::cerr << "Captured empty frame!" << std::endl;
+        return;
+    }
     if (!cv::imwrite(SAVE_IMAGE_PATH, frame)) {
         std::cerr << "Failed to save image to path" << std::endl;
         return;
@@ -372,9 +461,10 @@ void sendImage() {
         std::cerr << "Error: Cannot create socket!" << std::endl;
         return;
     }
-    struct sockaddr_in serverAddr;
+    struct sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(8080);
+    // Ensure remoteBaseUrl is an IP address; otherwise, use DNS resolution.
     serverAddr.sin_addr.s_addr = inet_addr(remoteBaseUrl.c_str());
     if (connect(sock, reinterpret_cast<struct sockaddr*>(&serverAddr), sizeof(serverAddr)) < 0) {
         std::cerr << "Error: Cannot connect to server!" << std::endl;
@@ -395,14 +485,20 @@ void sendImage() {
 
 int main() {
     // Set up signal handler.
-    signal(SIGINT, interrupt_handler);
+    signal(SIGINT, interruptHandler);
+    // Initialize YOLOv8 model before detection.
+    if (!initModel()) {
+        printf("Yolo model initialization failed");
+        cleanUp();
+    }
     // Read WiFi credentials and remote base URL.
     setWifiConfidentials();
     // If no SSID is set, scan QR code.
     getWifiQR();
     // Connect to WiFi and remote server.
     connectToWifi();
-    connectToRemote();
+    // Connect to device using wifi
+    connectToDevice();
     // Start the main processing loop.
     loop();
     return 0;
