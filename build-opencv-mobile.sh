@@ -23,6 +23,7 @@ echo "downloading host-tools"
 wget https://sophon-file.sophon.cn/sophon-prod-s3/drive/23/03/07/16/host-tools.tar.gz
 tar xvf host-tools.tar.gz
 rm host-tools.tar.gz
+echo "patching ioctl.h"
 sed -i '9s/^/\/\//' host-tools/gcc/riscv64-linux-musl-x86_64/sysroot/usr/include/sys/ioctl.h
 echo "downloading toolchain.cmake"
 wget https://raw.githubusercontent.com/nihui/opencv-mobile/refs/heads/master/toolchains/riscv64-unknown-linux-musl.toolchain.cmake
