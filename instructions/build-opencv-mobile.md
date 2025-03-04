@@ -2,13 +2,17 @@
 
 ### Build custom opencv mobile
 
+export ROOT_PATH=/root/Development/nano
+cd <folder path>
+./build-opencv-mobile.sh
+
 1. mkdir libs
 2. cd libs
 3. wget https://github.com/nihui/opencv-mobile/releases/latest/download/opencv-mobile-4.10.0.zip
 4. unzip opencv-mobile-4.10.0.zip
 5. rm opencv-mobile-4.10.0.zip
 6. cd opencv-mobile-4.10.0
-7. patch -p1 -i ../../files/patches/opencv-4.10.0-no-atomic.patch
+7. patch -p1 -i ../../files/opencv-4.10.0-no-atomic.patch
 8. cd ../
 9. cp ../files/options.txt opencv-mobile-4.10.0/options.txt
 10. cp ../files/capture_cvi.cpp opencv-mobile-4.10.0/modules/highgui/src/capture_cvi.cpp
