@@ -36,3 +36,4 @@ main*
 
 libs/
 build/
+venv/

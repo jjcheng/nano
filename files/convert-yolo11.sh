@@ -15,7 +15,7 @@ input_h=320
 # mean: 0, 0, 0
 # scale: 0.00392156862745098, 0.00392156862745098, 0.00392156862745098
 
-rm -r workspace
+#rm -r workspace
 mkdir -p workspace
 cd workspace
 
