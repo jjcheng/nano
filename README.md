@@ -15,7 +15,11 @@ chmod +x build-main.sh
 
 ## DEBUG MAIN ON HOST MACHINE
 
-g++ -std=c++11 -g main.cpp -o main `pkg-config --cflags --libs opencv4`
+g++ -std=c++11 -g main.cpp \
+-Ilibs/cvitek_tdl_sdk/include -Ilibs/cvitek_tdl_sdk/include/cvi_tdl \
+-Ilibs/cvitek_tdl_sdk/sample/3rd/middleware/v2/include \
+-Ilibs/cvitek_tdl_sdk/sample/3rd/middleware/v2/include/linux \
+-o main `pkg-config --cflags --libs opencv4`
 
 ## CONVERT YOLO MODEL
 
