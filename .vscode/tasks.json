@@ -4,17 +4,7 @@
     {
       "label": "build",
       "type": "shell",
-      "command": "g++",
-      "args": [
-        "-g",
-        "-o",
-        "main",
-        "main.cpp",
-        "`pkg-config",
-        "--cflags",
-        "--libs",
-        "opencv4`"
-      ],
+      "command": "g++ -std=c++11 -g main.cpp -o main `pkg-config --cflags --libs opencv4`",
       "group": {
         "kind": "build",
         "isDefault": true

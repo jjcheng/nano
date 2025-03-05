@@ -15,7 +15,7 @@ chmod +x build-main.sh
 
 ## DEBUG MAIN ON HOST MACHINE
 
-g++ -std=c++11 -g -o main main.cpp $(pkg-config --cflags --libs opencv4)
+g++ -std=c++11 -g main.cpp -o main `pkg-config --cflags --libs opencv4`
 
 ## CONVERT YOLO MODEL
 
