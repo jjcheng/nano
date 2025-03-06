@@ -394,8 +394,10 @@ bool initModel() {
     CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_THRESH);
     CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_NMS_THRESH);
     printf("YOLOv8 parameters setup success!\n");
-    // Open the model.
-    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, "/root/yolov8n_int8_2_class.cvimodel");
+    // Open the model
+    std::string str = "/root/yolov8n_int8_2_class.cvimodel";
+    const char* cstr = str.c_str();
+    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, cstr);
     if (ret != CVI_SUCCESS) {
         printf("Open model failed with %#x!\n", ret);
         return false;
