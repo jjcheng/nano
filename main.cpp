@@ -46,7 +46,7 @@
 #define MODEL_CLASS_CNT 4
 #define MODEL_THRESH 0.5
 #define MODEL_NMS_THRESH 0.5
-#define MODEL_FILE_PATH "/root/models/detect.cvimodel"
+#define MODEL_FILE_PATH "/root/yolov8n_int8_2_class.cvimodel"
 #define BLUE_MAT cv::Scalar(255, 0, 0)
 #define RED_MAT cv::Scalar(0, 0, 255)
 
