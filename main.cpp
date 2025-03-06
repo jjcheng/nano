@@ -487,10 +487,10 @@ int main() {
     // Set up signal handler.
     signal(SIGINT, interruptHandler);
     // Initialize YOLOv8 model before detection.
-    // if (!initModel()) {
-    //     printf("Yolo model initialization failed\n");
-    //     cleanUp();
-    // }
+    if (!initModel()) {
+        printf("Yolo model initialization failed\n");
+        cleanUp();
+    }
     // Read WiFi credentials and remote base URL.
     setWifiConfidentials();
     // If no SSID is set, scan QR code.
