@@ -6,8 +6,8 @@
 
 export ROOT_PATH=/root/Development/nano
 chmod +x build-opencv-mobile.sh
-apt install zip
-apt install cmake
+sudo apt install zip
+sudo apt install cmake
 ./build-opencv-mobile.sh
 
 ## BUILD MAIN
