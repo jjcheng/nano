@@ -395,7 +395,7 @@ bool initModel() {
     CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_NMS_THRESH);
     printf("YOLOv8 parameters setup success!\n");
     // Open the model.
-    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_FILE_PATH);
+    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV10_DETECTION, MODEL_FILE_PATH);
     if (ret != CVI_SUCCESS) {
         printf("Open model failed with %#x!\n", ret);
         return false;

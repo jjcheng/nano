@@ -32,6 +32,8 @@
 *.app
 .DS_Store
 main
+main-debug
+main-debug.*
 
 libs/
 build/
