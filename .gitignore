@@ -32,7 +32,6 @@
 *.app
 .DS_Store
 main
-main*
 
 libs/
 build/

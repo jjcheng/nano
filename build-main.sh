@@ -8,4 +8,4 @@ cd build
 cmake ..
 make
 echo "build finished, check install folder"
-cd install
+cd bin

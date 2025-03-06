@@ -2,6 +2,8 @@
 
 ### OPENCV MOBILE
 
+### clone the nano project, go cd into it
+
 export ROOT_PATH=/root/Development/nano
 chmod +x build-opencv-mobile.sh
 apt install zip
@@ -15,39 +17,67 @@ chmod +x build-main.sh
 
 ## DEBUG MAIN ON HOST MACHINE
 
+apt install pkgconf
+apt install libopencv-dev
+
+## DEBUG WITH CVI_TEK AS IT IS NOT COMPATIBLE
+
+g++ -std=c++11 -g main-debug.cpp -o main-debug `pkg-config --cflags --libs opencv4`
+
 g++ -std=c++11 -g main.cpp \
--Ilibs/cvitek_tdl_sdk/include -Ilibs/cvitek_tdl_sdk/include/cvi_tdl \
+-Ilibs/cvitek_tdl_sdk/include \
+-Ilibs/cvitek_tdl_sdk/include/cvi_tdl \
 -Ilibs/cvitek_tdl_sdk/sample/3rd/middleware/v2/include \
 -Ilibs/cvitek_tdl_sdk/sample/3rd/middleware/v2/include/linux \
+-Ilibs/cvitek_tdl_sdk/sample/3rd/middleware/v2/lib \
+-Ilibs/cvitek_tdl_sdk/sample/3rd/middleware/v2/lib/3rd \
+-Ilibs/cvitek_tdl_sdk/sample/3rd/opencv/lib \
+-Ilibs/cvitek_tdl_sdk/sample/3rd/tpu/lib \
+-Ilibs/cvitek_tdl_sdk/sample/3rd/ive/lib \
+-Ilibs/cvitek_tdl_sdk/lib \
+-Ilibs/cvitek_tdl_sdk/sample/3rd/lib \
+-Llibs//cvitek_tdl_sdk/sample/3rd/middleware/v2/lib \
+-Llibs/cvitek_tdl_sdk/sample/3rd/middleware/v2/lib/3rd \
+-lini -lsns_full -lsample -lisp -lvdec -lvenc -lawb -lae -laf -lcvi_bin -lcvi_bin_isp -lmisc -lisp_algo -lsys -lvpu \
+-Llibs/cvitek_tdl_sdk/sample/3rd/opencv/lib \
+-lopencv_core -lopencv_imgproc -lopencv_imgcodecs \
+-Llibs/cvitek_tdl_sdk/sample/3rd/tpu/lib \
+-lcnpy -lcvikernel -lcvimath -lcviruntime -lz -lm \
+-Llibs/cvitek_tdl_sdk/sample/3rd/ive/lib \
+-lcvi_ive_tpu \
+-Llibs/cvitek_tdl_sdk/lib \
+-lcvi_tdl \
+-Llibs/cvitek_tdl_sdk/sample/3rd/lib \
+-lpthread -latomic \
 -o main `pkg-config --cflags --libs opencv4`
 
 ## CONVERT YOLO MODEL
 
 https://wiki.sipeed.com/maixpy/doc/zh/ai_model_converter/maixcam.html
 
+export IP=<ubuntu IP address>
+
 1. sudo apt-get update
-2. sudo apt install curl apt-transport-https ca-certificates software-properties-common -y
-3. curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-4. echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+2. sudo apt-get install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+3. curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+4. sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 5. sudo apt update
-6. sudo apt install docker-ce -y
-7. sudo systemctl status docker
-8. docker pull sophgo/tpuc_dev:latest
-9. mkdir data
-10. cd data
-11. docker run --privileged --name tpu-env -v /home/$USER/data:/home/$USER/data -it sophgo/tpuc_dev
-12. [subsequent start] docker start tpu-env && docker attach tpu-env
-13. wget https://github.com/sophgo/tpu-mlir/releases/download/v1.16/tpu_mlir-1.16-py3-none-any.whl
-14. pip install tpu_mlir-1.16-py3-none-any.whl
-15. scp /Users/jj/Desktop/Development/nano/files/convert-yolo11.sh root@<server ip>:/home/root/data/
-16. scp ~/Desktop/test.jpg root@<server ip>:/home/root/data/
-17. scp ~/Desktop/images.zip root@<server ip>:/home/root/data/
-18. scp ~/Desktop/yolo11s.onnx root@<server ip>:/home/root/data/
-19. chmod +x convert-yolo11.sh
-20. ./convert-yolo11.sh
-21. cd workspace
-22. scp root@47.84.46.173:/home/root/data/workspace/yolo11s_int8.cvimodel ~/Desktop/
-23. scp root@47.84.46.173:/home/root/data/workspace/yolo11s_bf16.cvimodel ~/Desktop/
+6. sudo apt-get install docker-ce docker-ce-cli containerd.io
+7. docker pull sophgo/tpuc_dev:latest
+8. docker run --privileged --name tpu-env -v /home/data:/home/data -it sophgo/tpuc_dev
+9. [subsequent start] docker start tpu-env && docker attach tpu-env
+10. cd /home/data
+11. wget https://github.com/sophgo/tpu-mlir/releases/download/v1.16/tpu_mlir-1.16-py3-none-any.whl
+12. pip install tpu_mlir-1.16-py3-none-any.whl
+13. scp files/convert-model.sh root@$IP:/home/data/
+14. scp ~/Desktop/test.jpg root@$IP:/home/data/
+15. scp ~/Desktop/images.zip root@$IP:/home/data/
+16. scp ~/Desktop/convert.onnx root@$IP:/home/data/
+17. chmod +x convert-model.sh
+18. ./convert-model.sh
+19. cd workspace
+20. scp root@$IP:/home/data/workspace/detect_int8.cvimodel ~/Desktop/
+21. scp root@$IP:/home/data/workspace/detect_bf16.cvimodel ~/Desktop/
 
 ## CLEAN MAKE
 

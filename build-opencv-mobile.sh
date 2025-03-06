@@ -42,6 +42,6 @@ cmake \
     `cat ../options.txt` \
     -DBUILD_opencv_world=OFF \
     -DOPENCV_DISABLE_FILESYSTEM_SUPPORT=ON ..
-make -j18
+make -j8
 echo "making"
 make install

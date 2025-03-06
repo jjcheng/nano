@@ -15,7 +15,6 @@ include_directories(
     $ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include
     $ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include/linux
 )
-
 set(OpenCV_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/opencv-mobile-4.10.0/build/install/lib/cmake/opencv4")
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})

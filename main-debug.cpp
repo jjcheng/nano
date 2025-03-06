@@ -26,11 +26,6 @@
 #include <functional>
 #include <map>
 
-// custom includes
-#include "core/cvi_tdl_types_mem_internal.h"
-#include "core/utils/vpss_helper.h"
-#include "cvi_tdl.h"
-#include "cvi_tdl_media.h"
 
 #define BUFFER_SIZE 4096
 #define WIFI_CONFIG_FILE_PATH "/root/wifi_config"
@@ -46,7 +41,7 @@
 #define MODEL_CLASS_CNT 4
 #define MODEL_THRESH 0.5
 #define MODEL_NMS_THRESH 0.5
-#define MODEL_FILE_PATH "/root/models/detect.cvimodel"
+#define MODEL_FILE_PATH "/root/models/model.cvimodel"
 #define BLUE_MAT cv::Scalar(255, 0, 0)
 #define RED_MAT cv::Scalar(0, 0, 255)
 
@@ -57,7 +52,7 @@ std::string remoteBaseUrl = "";
 std::string myIp = "";
 cv::VideoCapture cap;
 cv::QRCodeDetector qrDecoder;
-cvitdl_handle_t tdl_handle = NULL;
+//cvitdl_handle_t tdl_handle = NULL;
 
 // Use sig_atomic_t for safe signal handling
 volatile sig_atomic_t interrupted = 0;
@@ -87,9 +82,9 @@ void cleanUp() {
     if (cap.isOpened()) {
         cap.release();
     }
-    if (tdl_handle != NULL) {
-        CVI_TDL_DestroyHandle(tdl_handle);
-    }
+    // if (tdl_handle != NULL) {
+    //     CVI_TDL_DestroyHandle(tdl_handle);
+    // }
     std::printf("Exiting...\n");
     exit(0);
 }
@@ -97,7 +92,6 @@ void cleanUp() {
 // Read WiFi config from file and set credentials.
 void setWifiConfidentials() {
     std::ifstream file(WIFI_CONFIG_FILE_PATH);
-    //if no such file, return
     if (!file.good()) {
         return;
     }
@@ -128,6 +122,7 @@ void setWifiCredentialFromText(const std::string& text) {
     }
     std::cout << "SSID: " << wifiSSID << "\nPASSWORD: " << wifiPassword
               << "\nREMOTEBASEURL: " << remoteBaseUrl << std::endl;
+
     std::string wifiConfig = "ssid:" + wifiSSID + "\npassword:" + wifiPassword + "\nremoteBaseUrl:" + remoteBaseUrl;
     // Create the config file if it doesn't exist.
     std::ifstream infile(WIFI_CONFIG_FILE_PATH);
@@ -362,44 +357,44 @@ void loop() {
 
 // Initialize YOLOv8 model and set parameters.
 bool initModel() {
-    CVI_S32 ret = CVI_TDL_CreateHandle(&tdl_handle);
-    if (ret != CVI_SUCCESS) {
-        printf("Create tdl handle failed with %#x!\n", ret);
-        return false;
-    }
-    // Setup preprocessing parameters.
-    YoloPreParam preprocess_cfg = CVI_TDL_Get_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
-    for (int i = 0; i < 3; i++) {
-        printf("assign val %d \n", i);
-        preprocess_cfg.factor[i] = MODEL_SCALE;
-        preprocess_cfg.mean[i] = MODEL_MEAN;
-    }
-    preprocess_cfg.format = PIXEL_FORMAT_RGB_888_PLANAR;
-    printf("Setting YOLOv8 preprocess parameters\n");
-    ret = CVI_TDL_Set_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, preprocess_cfg);
-    if (ret != CVI_SUCCESS) {
-        printf("Cannot set YOLOv8 preprocess parameters %#x\n", ret);
-        return false;
-    }
-    // Setup algorithm parameters.
-    YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
-    yolov8_param.cls = MODEL_CLASS_CNT;
-    printf("Setting YOLOv8 algorithm parameters\n");
-    ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
-    if (ret != CVI_SUCCESS) {
-        printf("Cannot set YOLOv8 algorithm parameters %#x\n", ret);
-        return false;
-    }
-    // Set detection thresholds.
-    CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_THRESH);
-    CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_NMS_THRESH);
-    printf("YOLOv8 parameters setup success!\n");
-    // Open the model.
-    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_FILE_PATH);
-    if (ret != CVI_SUCCESS) {
-        printf("Open model failed with %#x!\n", ret);
-        return false;
-    }
+    // CVI_S32 ret = CVI_TDL_CreateHandle(&tdl_handle);
+    // if (ret != CVI_SUCCESS) {
+    //     printf("Create tdl handle failed with %#x!\n", ret);
+    //     return false;
+    // }
+    // // Setup preprocessing parameters.
+    // YoloPreParam preprocess_cfg = CVI_TDL_Get_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
+    // for (int i = 0; i < 3; i++) {
+    //     printf("assign val %d \n", i);
+    //     preprocess_cfg.factor[i] = MODEL_SCALE;
+    //     preprocess_cfg.mean[i] = MODEL_MEAN;
+    // }
+    // preprocess_cfg.format = PIXEL_FORMAT_RGB_888_PLANAR;
+    // printf("Setting YOLOv8 preprocess parameters\n");
+    // ret = CVI_TDL_Set_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, preprocess_cfg);
+    // if (ret != CVI_SUCCESS) {
+    //     printf("Cannot set YOLOv8 preprocess parameters %#x\n", ret);
+    //     return false;
+    // }
+    // // Setup algorithm parameters.
+    // YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
+    // yolov8_param.cls = MODEL_CLASS_CNT;
+    // printf("Setting YOLOv8 algorithm parameters\n");
+    // ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
+    // if (ret != CVI_SUCCESS) {
+    //     printf("Cannot set YOLOv8 algorithm parameters %#x\n", ret);
+    //     return false;
+    // }
+    // // Set detection thresholds.
+    // CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_THRESH);
+    // CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_NMS_THRESH);
+    // printf("YOLOv8 parameters setup success!\n");
+    // // Open the model.
+    // ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_FILE_PATH);
+    // if (ret != CVI_SUCCESS) {
+    //     printf("Open model failed with %#x!\n", ret);
+    //     return false;
+    // }
     return true;
 }
 
@@ -409,22 +404,23 @@ bool detect(cv::Mat &image) {
     printf("Performing detection...\n");
     // Convert cv::Mat data pointer to VIDEO_FRAME_INFO_S pointer.
     // (Adjust this cast as required by your custom API.)
-    VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image.data);
-    cvtdl_object_t obj_meta = {0};
-    CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
-    // Draw bounding boxes on the image.
-    for (uint32_t i = 0; i < obj_meta.size; i++) {
-        cv::Rect r(static_cast<int>(obj_meta.info[i].bbox.x1),
-                   static_cast<int>(obj_meta.info[i].bbox.y1),
-                   static_cast<int>(obj_meta.info[i].bbox.x2 - obj_meta.info[i].bbox.x1),
-                   static_cast<int>(obj_meta.info[i].bbox.y2 - obj_meta.info[i].bbox.y1));
-        if (obj_meta.info[i].classes == 0)
-            cv::rectangle(image, r, BLUE_MAT, 1, 8, 0);
-        else if (obj_meta.info[i].classes == 1)
-            cv::rectangle(image, r, RED_MAT, 1, 8, 0);
-    }
-    // Return true if any object was detected.
-    return (obj_meta.size > 0);
+    // VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image.data);
+    // cvtdl_object_t obj_meta = {0};
+    // CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
+    // // Draw bounding boxes on the image.
+    // for (uint32_t i = 0; i < obj_meta.size; i++) {
+    //     cv::Rect r(static_cast<int>(obj_meta.info[i].bbox.x1),
+    //                static_cast<int>(obj_meta.info[i].bbox.y1),
+    //                static_cast<int>(obj_meta.info[i].bbox.x2 - obj_meta.info[i].bbox.x1),
+    //                static_cast<int>(obj_meta.info[i].bbox.y2 - obj_meta.info[i].bbox.y1));
+    //     if (obj_meta.info[i].classes == 0)
+    //         cv::rectangle(image, r, BLUE_MAT, 1, 8, 0);
+    //     else if (obj_meta.info[i].classes == 1)
+    //         cv::rectangle(image, r, RED_MAT, 1, 8, 0);
+    // }
+    // // Return true if any object was detected.
+    // return (obj_meta.size > 0);
+    return true;
 }
 
 // Upload an image by saving, encoding to JPEG, and sending via HTTP POST.
@@ -487,10 +483,10 @@ int main() {
     // Set up signal handler.
     signal(SIGINT, interruptHandler);
     // Initialize YOLOv8 model before detection.
-    if (!initModel()) {
-        printf("Yolo model initialization failed\n");
-        cleanUp();
-    }
+    // if (!initModel()) {
+    //     printf("Yolo model initialization failed\n");
+    //     cleanUp();
+    // }
     // Read WiFi credentials and remote base URL.
     setWifiConfidentials();
     // If no SSID is set, scan QR code.

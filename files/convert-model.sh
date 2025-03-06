@@ -2,7 +2,7 @@
 
 set -e
 
-net_name=yolo11s
+net_name=detect
 input_w=320
 input_h=320
 
@@ -15,7 +15,6 @@ input_h=320
 # mean: 0, 0, 0
 # scale: 0.00392156862745098, 0.00392156862745098, 0.00392156862745098
 
-#rm -r workspace
 mkdir -p workspace
 cd workspace
 
