@@ -391,9 +391,9 @@ bool initModel() {
         return false;
     }
     // Set detection thresholds.
-    CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
-    CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
-    printf("YOLOv8 parameters setup success!\n");
+    // CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
+    // CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
+    // printf("YOLOv8 parameters setup success!\n");
     // Open the model
     ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, "/root/yolov8n_int8_2_class.cvimodel");
     if (ret != CVI_SUCCESS) {
