@@ -370,12 +370,12 @@ bool initModel() {
     // Setup preprocessing parameters.
     YoloPreParam preprocess_cfg = CVI_TDL_Get_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
     for (int i = 0; i < 3; i++) {
-        printf("assign val %d \n", i);
+       // printf("assign val %d \n", i);
         preprocess_cfg.factor[i] = MODEL_SCALE;
         preprocess_cfg.mean[i] = MODEL_MEAN;
     }
     preprocess_cfg.format = PIXEL_FORMAT_RGB_888_PLANAR;
-    printf("Setting YOLOv8 preprocess parameters\n");
+    //printf("Setting YOLOv8 preprocess parameters\n");
     ret = CVI_TDL_Set_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, preprocess_cfg);
     if (ret != CVI_SUCCESS) {
         printf("Cannot set YOLOv8 preprocess parameters %#x\n", ret);
@@ -384,16 +384,16 @@ bool initModel() {
     // Setup algorithm parameters.
     YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
     yolov8_param.cls = MODEL_CLASS_CNT;
-    printf("Setting YOLOv8 algorithm parameters\n");
+    //printf("Setting YOLOv8 algorithm parameters\n");
     ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
     if (ret != CVI_SUCCESS) {
         printf("Cannot set YOLOv8 algorithm parameters %#x\n", ret);
         return false;
     }
     // Set detection thresholds.
-    // CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
-    // CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
-    // printf("YOLOv8 parameters setup success!\n");
+    CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
+    CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
+    //printf("YOLOv8 parameters setup success!\n");
     // Open the model
     ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, "/root/yolov8n_int8_2_class.cvimodel");
     if (ret != CVI_SUCCESS) {
