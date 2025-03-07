@@ -2,46 +2,19 @@
 
 Use google colab https://colab.research.google.com/drive/1uygwuiXFVj7iBH-wdXjGCbeddM6sgmy0?authuser=2
 
-https://wiki.sipeed.com/maixpy/doc/zh/ai_model_converter/maixcam.html
+Refereces:
 
-export IP=<ubuntu IP address>
+1. https://wiki.sipeed.com/maixpy/doc/zh/ai_model_converter/maixcam.html
+2. https://wiki.seeedstudio.com/recamera_model_conversion/
+3. https://github.com/sophgo/tdl_sdk/blob/1c6c4da1ac66ba3d364ced48aefb9427fd77ac3c/modules/core/object_detection/yolov8/yolov8.cpp#L69
+4. https://doc.sophgo.com/cvitek-develop-docs/master/docs_latest_release/CV180x_CV181x/en/01.software/TPU/YOLO_Development_Guide/build/html/3_Yolov5_development.html#preparing-the-environment-for-model-conversion
+5. https://github.com/sophgo/tpu-mlir
+6. https://drive.google.com/file/u/1/d/1nhWBeKPAJ9O-7zXrXu0uMwNdArOiBBLm/view
+7. https://github.com/ret7020/LicheeRVNano/tree/master/Projects/Yolov8
 
-1. sudo apt-get update
-2. sudo apt-get install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-3. curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-4. sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-5. sudo apt update
-6. sudo apt-get install docker-ce docker-ce-cli containerd.io
-7. docker pull sophgo/tpuc_dev:latest
-8. docker run --privileged --name tpu-env -v /home/data:/home/data -it sophgo/tpuc_dev
-9. [subsequent start] docker start tpu-env && docker attach tpu-env
-10. cd /home/data
-11. wget https://github.com/sophgo/tpu-mlir/releases/download/v1.16/tpu_mlir-1.16-py3-none-any.whl
-12. pip install tpu_mlir-1.16-py3-none-any.whl
-13. scp convert-model.sh root@$IP:/home/data/
-14. scp ~/Desktop/test.jpg root@$IP:/home/data/
-15. scp ~/Desktop/images.zip root@$IP:/home/data/
-16. scp ~/Desktop/convert.onnx root@$IP:/home/data/
-17. chmod +x convert-model.sh
-18. ./convert-model.sh
-19. cd workspace
-20. scp root@$IP:/home/data/workspace/detect_int8.cvimodel ~/Desktop/
-21. scp root@$IP:/home/data/workspace/detect_bf16.cvimodel ~/Desktop/
+### COMPILE OPENCV MOBILE WITH OBJDETECT + main.cpp
 
-### COMPILE OPENCV MOBILE WITH OBJDETECT
-
-### clone the nano project, go cd into it
-
-export ROOT_PATH=/root/Development/nano
-chmod +x build-opencv-mobile.sh
-sudo apt install zip
-sudo apt install cmake
-./build-opencv-mobile.sh
-
-## BUILD MAIN.CPP
-
-chmod +x build-main.sh
-./build-main.sh
+Use google colab https://colab.research.google.com/drive/1lO7anylnpNZ_wH-ZHKmWlsvHTl5IBKPL?authuser=2#scrollTo=YjVvoS4IiIWG&uniqifier=1
 
 ## DEBUG MAIN-DEBUG.CPP ON HOST MACHINE
 
