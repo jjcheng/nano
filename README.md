@@ -1,6 +1,34 @@
-## CROSS COMPILE IN UBUNTU
+## CONVERT YOLO MODEL
 
-### OPENCV MOBILE
+Use google colab https://colab.research.google.com/drive/1uygwuiXFVj7iBH-wdXjGCbeddM6sgmy0?authuser=2
+
+https://wiki.sipeed.com/maixpy/doc/zh/ai_model_converter/maixcam.html
+
+export IP=<ubuntu IP address>
+
+1. sudo apt-get update
+2. sudo apt-get install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+3. curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+4. sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+5. sudo apt update
+6. sudo apt-get install docker-ce docker-ce-cli containerd.io
+7. docker pull sophgo/tpuc_dev:latest
+8. docker run --privileged --name tpu-env -v /home/data:/home/data -it sophgo/tpuc_dev
+9. [subsequent start] docker start tpu-env && docker attach tpu-env
+10. cd /home/data
+11. wget https://github.com/sophgo/tpu-mlir/releases/download/v1.16/tpu_mlir-1.16-py3-none-any.whl
+12. pip install tpu_mlir-1.16-py3-none-any.whl
+13. scp convert-model.sh root@$IP:/home/data/
+14. scp ~/Desktop/test.jpg root@$IP:/home/data/
+15. scp ~/Desktop/images.zip root@$IP:/home/data/
+16. scp ~/Desktop/convert.onnx root@$IP:/home/data/
+17. chmod +x convert-model.sh
+18. ./convert-model.sh
+19. cd workspace
+20. scp root@$IP:/home/data/workspace/detect_int8.cvimodel ~/Desktop/
+21. scp root@$IP:/home/data/workspace/detect_bf16.cvimodel ~/Desktop/
+
+### COMPILE OPENCV MOBILE WITH OBJDETECT
 
 ### clone the nano project, go cd into it
 
@@ -10,12 +38,12 @@ sudo apt install zip
 sudo apt install cmake
 ./build-opencv-mobile.sh
 
-## BUILD MAIN
+## BUILD MAIN.CPP
 
 chmod +x build-main.sh
 ./build-main.sh
 
-## DEBUG MAIN ON HOST MACHINE
+## DEBUG MAIN-DEBUG.CPP ON HOST MACHINE
 
 apt install pkgconf
 apt install libopencv-dev
@@ -24,6 +52,7 @@ apt install libopencv-dev
 
 g++ -std=c++11 -g main-debug.cpp -o main-debug `pkg-config --cflags --libs opencv4`
 
+not working
 g++ -std=c++11 -g main.cpp \
 -Ilibs/cvitek_tdl_sdk/include \
 -Ilibs/cvitek_tdl_sdk/include/cvi_tdl \
@@ -50,34 +79,6 @@ g++ -std=c++11 -g main.cpp \
 -Llibs/cvitek_tdl_sdk/sample/3rd/lib \
 -lpthread -latomic \
 -o main `pkg-config --cflags --libs opencv4`
-
-## CONVERT YOLO MODEL
-
-https://wiki.sipeed.com/maixpy/doc/zh/ai_model_converter/maixcam.html
-
-export IP=<ubuntu IP address>
-
-1. sudo apt-get update
-2. sudo apt-get install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-3. curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-4. sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-5. sudo apt update
-6. sudo apt-get install docker-ce docker-ce-cli containerd.io
-7. docker pull sophgo/tpuc_dev:latest
-8. docker run --privileged --name tpu-env -v /home/data:/home/data -it sophgo/tpuc_dev
-9. [subsequent start] docker start tpu-env && docker attach tpu-env
-10. cd /home/data
-11. wget https://github.com/sophgo/tpu-mlir/releases/download/v1.16/tpu_mlir-1.16-py3-none-any.whl
-12. pip install tpu_mlir-1.16-py3-none-any.whl
-13. scp files/convert-model.sh root@$IP:/home/data/
-14. scp ~/Desktop/test.jpg root@$IP:/home/data/
-15. scp ~/Desktop/images.zip root@$IP:/home/data/
-16. scp ~/Desktop/convert.onnx root@$IP:/home/data/
-17. chmod +x convert-model.sh
-18. ./convert-model.sh
-19. cd workspace
-20. scp root@$IP:/home/data/workspace/detect_int8.cvimodel ~/Desktop/
-21. scp root@$IP:/home/data/workspace/detect_bf16.cvimodel ~/Desktop/
 
 ## CLEAN MAKE
 
