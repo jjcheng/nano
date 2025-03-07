@@ -46,7 +46,6 @@
 #define MODEL_CLASS_CNT 4
 #define MODEL_THRESH 0.5
 #define MODEL_NMS_THRESH 0.5
-#define MODEL_FILE_PATH "/root/yolov8n_int8_2_class.cvimodel"
 #define BLUE_MAT cv::Scalar(255, 0, 0)
 #define RED_MAT cv::Scalar(0, 0, 255)
 
@@ -395,7 +394,7 @@ bool initModel() {
     CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
     //printf("YOLOv8 parameters setup success!\n");
     // Open the model
-    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, "/root/yolov8n_int8_2_class.cvimodel");
+    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, "/root/detect.cvimodel");
     if (ret != CVI_SUCCESS) {
         printf("Open model failed with %#x!\n", ret);
         return false;

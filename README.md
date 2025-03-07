@@ -58,3 +58,11 @@ g++ -std=c++11 -g main.cpp \
 cd ../
 cmake --build <build-dir> --target clean
 rm -r <build dir>
+
+## SEARCH LOG ON BOARD
+
+cat /var/log/messages | grep "stride not equal,stridew"
+
+### clear log
+
+truncate -s 0 /var/log/messages
