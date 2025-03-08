@@ -41,8 +41,6 @@
 #define CHANGE_THRESHOLD_PERCENT 0.10
 
 // YOLO defines
-#define MODEL_SCALE 0.0039216
-#define MODEL_MEAN 0.0
 #define MODEL_CLASS_CNT 3 //underline, highlight, pen
 #define MODEL_THRESH 0.5
 #define MODEL_NMS_THRESH 0.5
@@ -366,39 +364,66 @@ bool initModel() {
         printf("Create tdl handle failed with %#x!\n", ret);
         return false;
     }
-    // Setup preprocessing parameters.
-    YoloPreParam preprocess_cfg = CVI_TDL_Get_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
-    for (int i = 0; i < 3; i++) {
-       // printf("assign val %d \n", i);
-        preprocess_cfg.factor[i] = MODEL_SCALE;
-        preprocess_cfg.mean[i] = MODEL_MEAN;
+    // open model and set conf & nms threshold
+    // ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, "/root/detect.cvimodel");
+    // CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
+    // CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
+    // if (ret != CVI_SUCCESS) {
+    //     printf("open model failed with %#x!\n", ret);
+    //     return false;
+    // }
+
+
+    int vpssgrp_width = 320;
+    int vpssgrp_height = 320;
+    CVI_S32 ret = MMF_INIT_HELPER2(vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1,
+                                   vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1);
+    if (ret != CVI_TDL_SUCCESS)
+    {
+        printf("Init sys failed with %#x!\n", ret);
+        return ret;
     }
-    preprocess_cfg.format = PIXEL_FORMAT_RGB_888_PLANAR;
-    //printf("Setting YOLOv8 preprocess parameters\n");
-    ret = CVI_TDL_Set_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, preprocess_cfg);
-    if (ret != CVI_SUCCESS) {
-        printf("Cannot set YOLOv8 preprocess parameters %#x\n", ret);
-        return false;
-    }
-    // Setup algorithm parameters.
-    YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
-    yolov8_param.cls = MODEL_CLASS_CNT;
-    //printf("Setting YOLOv8 algorithm parameters\n");
-    ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
-    if (ret != CVI_SUCCESS) {
-        printf("Cannot set YOLOv8 algorithm parameters %#x\n", ret);
-        return false;
-    }
-    // Set detection thresholds.
-    CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
-    CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
-    //printf("YOLOv8 parameters setup success!\n");
-    // Open the model
+    // change param of yolov8_detection
+    //ret = init_param(tdl_handle);
     ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, "/root/detect.cvimodel");
-    if (ret != CVI_SUCCESS) {
-        printf("Open model failed with %#x!\n", ret);
-        return false;
+    if (ret != CVI_SUCCESS)
+    {
+        printf("open model failed with %#x!\n", ret);
+        return ret;
     }
+
+
+    // Setup preprocessing parameters.
+    // YoloPreParam preprocess_cfg = CVI_TDL_Get_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
+    // for (int i = 0; i < 3; i++) {
+    //     preprocess_cfg.factor[i] = 0.0039216;
+    //     preprocess_cfg.mean[i] = 0;
+    // }
+    // preprocess_cfg.format = PIXEL_FORMAT_RGB_888_PLANAR;
+    // ret = CVI_TDL_Set_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, preprocess_cfg);
+    // if (ret != CVI_SUCCESS) {
+    //     printf("Cannot set YOLOv8 preprocess parameters %#x\n", ret);
+    //     return false;
+    // }
+    // // Setup algorithm parameters.
+    // YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
+    // yolov8_param.cls = MODEL_CLASS_CNT;
+    // //printf("Setting YOLOv8 algorithm parameters\n");
+    // ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
+    // if (ret != CVI_SUCCESS) {
+    //     printf("Cannot set YOLOv8 algorithm parameters %#x\n", ret);
+    //     return false;
+    // }
+    // // Set detection thresholds.
+    // CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
+    // CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
+    // //printf("YOLOv8 parameters setup success!\n");
+    // // Open the model
+    // ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, "/root/detect.cvimodel");
+    // if (ret != CVI_SUCCESS) {
+    //     printf("Open model failed with %#x!\n", ret);
+    //     return false;
+    // }
     return true;
 }
 
