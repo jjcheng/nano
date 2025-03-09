@@ -365,32 +365,32 @@ bool initModel() {
         return false;
     }
     // open model and set conf & nms threshold
-    // ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, "/root/detect.cvimodel");
-    // CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
-    // CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
-    // if (ret != CVI_SUCCESS) {
-    //     printf("open model failed with %#x!\n", ret);
-    //     return false;
-    // }
-
-
-    int vpssgrp_width = 320;
-    int vpssgrp_height = 320;
-    CVI_S32 ret = MMF_INIT_HELPER2(vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1,
-                                   vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1);
-    if (ret != CVI_TDL_SUCCESS)
-    {
-        printf("Init sys failed with %#x!\n", ret);
-        return ret;
-    }
-    // change param of yolov8_detection
-    //ret = init_param(tdl_handle);
-    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, "/root/detect.cvimodel");
-    if (ret != CVI_SUCCESS)
-    {
+    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, "/root/yolo11s.cvimodel");
+    CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
+    CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
+    if (ret != CVI_SUCCESS) {
         printf("open model failed with %#x!\n", ret);
-        return ret;
+        return false;
     }
+
+
+    // int vpssgrp_width = 320;
+    // int vpssgrp_height = 320;
+    // CVI_S32 ret = MMF_INIT_HELPER2(vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1,
+    //                                vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1);
+    // if (ret != CVI_TDL_SUCCESS)
+    // {
+    //     printf("Init sys failed with %#x!\n", ret);
+    //     return ret;
+    // }
+    // // change param of yolov8_detection
+    // //ret = init_param(tdl_handle);
+    // ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, "/root/detect.cvimodel");
+    // if (ret != CVI_SUCCESS)
+    // {
+    //     printf("open model failed with %#x!\n", ret);
+    //     return ret;
+    // }
 
 
     // Setup preprocessing parameters.
