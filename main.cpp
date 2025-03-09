@@ -379,7 +379,7 @@ bool initModel() {
     // Setup algorithm parameters
     YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
     yolov8_param.cls = 3;
-    printf("class count %d\n", yolov8_param.cls)
+    printf("class count %d\n", yolov8_param.cls);
     printf("Setting YOLOv8 algorithm parameters\n");
     ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
     if (ret != CVI_SUCCESS) {
