@@ -26,7 +26,7 @@ apt install libopencv-dev
 g++ -std=c++11 -g main-debug.cpp -o main-debug `pkg-config --cflags --libs opencv4`
 
 not working
-g++ -std=c++11 -g main.cpp \
+g++ -std=c++11 -g main-debug.cpp \
 -Ilibs/cvitek_tdl_sdk/include \
 -Ilibs/cvitek_tdl_sdk/include/cvi_tdl \
 -Ilibs/cvitek_tdl_sdk/sample/3rd/middleware/v2/include \
@@ -52,6 +52,8 @@ g++ -std=c++11 -g main.cpp \
 -Llibs/cvitek_tdl_sdk/sample/3rd/lib \
 -lpthread -latomic \
 -o main `pkg-config --cflags --libs opencv4`
+
+g++ -Ilibs/cvitek_tdl_sdk/include/cvi_tdl -Ilibs/cvitek_tdl_sdk/include main-debug.cpp -Ilibs/cvitek_tdl_sdk/sample/3rd/middleware/v2/include -Ilibs/cvitek_tdl_sdk/sample/3rd/middleware/v2/include/linux -g -o app
 
 ## CLEAN MAKE
 
