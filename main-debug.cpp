@@ -108,28 +108,19 @@ void setWifiCredentialFromText(const std::string& text) {
     } else {
         std::cerr << "Unable to open file: " << WIFI_CONFIG_FILE_PATH << std::endl;
     }
-
-    // Open file in truncate mode (overwrite if exists, create if not)
-    // std::ofstream file(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
-    // if (!file) {
-    //     std::cerr << "Error opening/creating file.\n";
-    //     return;
-    // }
-    // file << wifiConfig; // Write new text
-    // file.close();
 }
 
 // Connect to WiFi using system commands.
 void connectToWifi() {
-    std::cout << "Connecting to " << wifiSSID << std::endl;
-    std::string configCmd = "echo 'network={\n    ssid=\"" + wifiSSID + "\"\n    psk=\"" + wifiPassword + "\"\n}' > /etc/wpa_supplicant.conf";
-    if (!runCommand(configCmd) ||
-        !runCommand("ifconfig wlan0 up") ||
-        !runCommand("wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant.conf") ||
-        !runCommand("udhcpc -i wlan0")) {
-        wifiSSID = "";
-        return;
-    }
+    // std::cout << "Connecting to " << wifiSSID << std::endl;
+    // std::string configCmd = "echo 'network={\n    ssid=\"" + wifiSSID + "\"\n    psk=\"" + wifiPassword + "\"\n}' > /etc/wpa_supplicant.conf";
+    // if (!runCommand(configCmd) ||
+    //     !runCommand("ifconfig wlan0 up") ||
+    //     !runCommand("wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant.conf") ||
+    //     !runCommand("udhcpc -i wlan0")) {
+    //     wifiSSID = "";
+    //     return;
+    // }
     myIp = getIPAddress();
     std::cout << "Connected to " << wifiSSID << " with IP " << myIp << std::endl;
 }
