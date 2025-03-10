@@ -169,7 +169,7 @@ std::string getIPAddress(const char* interfaceName = "eth0") {
 // Connect to the remote server by pinging a URL.
 void connectToDevice() {
     while (!interrupted) {
-        std::string url = remoteBaseUrl + "/ping?id=" + myIp;
+        std::string url = remoteBaseUrl + "/ping?ip=" + myIp;
         std::cout << "Connecting to remote URL " << url << std::endl;
         HttpResponse response = http_get(url);
         if (response.statusCode == 200) {
