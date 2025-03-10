@@ -70,11 +70,13 @@ void setWifiCredentials() {
     std::ifstream file(WIFI_CONFIG_FILE_PATH);
     //if no such file, return
     if (!file.good()) {
+        std::printf("no wifi_config file\n");
         return;
     }
     std::stringstream buffer;
     buffer << file.rdbuf();
     std::string text = buffer.str();
+    std::printf("wifi_config: %s\n", text);
     file.close();
     setWifiCredentialFromText(text);
 }
