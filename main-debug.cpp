@@ -54,6 +54,8 @@ std::string wifiSSID = "";
 std::string wifiPassword = "";
 std::string remoteBaseUrl = "";
 std::string myIp = "";
+cv::VideoCapture cap;
+cv::QRCodeDetector qrDecoder;
 
 struct HttpResponse {
     std::string body;       // Response body
@@ -69,6 +71,8 @@ void sendImage();
 bool runCommand(const std::string& command);
 HttpResponse http_get(const std::string& url);
 void setWifiCredentialFromText(const std::string& text);
+std::string detectQR();
+void openCamera();
 void cleanUp();
 void connectToDevice();
 void loop();
@@ -128,6 +132,64 @@ void setWifiCredentialFromText(const std::string& text) {
     } else {
         std::cerr << "Unable to open file: " << WIFI_CONFIG_FILE_PATH << std::endl;
     }
+}
+
+// Scan for a QR code and set WiFi credentials.
+void getWifiQR() {
+    openCamera();
+    while (wifiSSID.empty() && !interrupted) {
+        std::string content = detectQR();
+        if (content.empty()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
+        }
+        std::cout << "QR Content: " << content << std::endl;
+        setWifiCredentialFromText(content);
+    }
+    if (interrupted) {
+        cleanUp();
+    }
+}
+
+// Detect and decode a QR code from the current camera frame.
+std::string detectQR() {
+    std::printf("Detecting QR code for WiFi\n");
+    cv::Mat frame;
+    cap >> frame;
+    if (frame.empty()) return "";
+    cv::Mat bbox, rectifiedImage;
+    std::string data = qrDecoder.detectAndDecode(frame, bbox, rectifiedImage);
+    return data;
+}
+
+// Open the default camera and warm it up.
+void openCamera() {
+    while (!interrupted && !cap.isOpened()) {
+        std::cout << "Opening camera..." << std::endl;
+        cap.open(0);
+        if (!cap.isOpened()) {
+            std::cerr << "Camera open failed, retrying in 3 seconds..." << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+        } else {
+            cv::Mat dummy;
+            // Warm up: skip initial frames.
+            for (int i = 0; i < 30 && !interrupted; ++i)
+                cap >> dummy;
+            std::cout << "Camera opened successfully!" << std::endl;
+        }
+    }
+}
+
+// Set camera resolution.
+bool setCameraResolution(bool max) {
+    if (max) {
+        cap.set(cv::CAP_PROP_FRAME_WIDTH, 2560);
+        cap.set(cv::CAP_PROP_FRAME_HEIGHT, 1440);
+    } else {
+        cap.set(cv::CAP_PROP_FRAME_WIDTH, 320);
+        cap.set(cv::CAP_PROP_FRAME_HEIGHT, 320);
+    }
+    return true;
 }
 
 // Connect to WiFi using system commands.
@@ -296,6 +358,7 @@ void sendImage() {
     //     std::cerr << "Failed to save image to path" << std::endl;
     //     return;
     // }
+    std::printf("sending image\n");
     std::vector<uchar> imgData;
     std::string imagePath = "files/test.jpg";
     cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
@@ -317,31 +380,25 @@ void sendImage() {
         // Set the URL
         std::string url = remoteBaseUrl + "/upload";
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-
         // Set the HTTP method to POST
         curl_easy_setopt(curl, CURLOPT_POST, 1L);
-
         // Set the raw binary data as the POST body
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, buffer.data());
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, buffer.size());
-
         // Set the Content-Type header to application/octet-stream
         struct curl_slist* headers = nullptr;
         headers = curl_slist_append(headers, "Content-Type: application/octet-stream");
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
         // Perform the request
         res = curl_easy_perform(curl);
-
         // Check for errors
         if (res != CURLE_OK) {
             std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
         } else {
             long httpCode = 0;
             curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
-            std::cout << "HTTP Status Code: " << httpCode << std::endl;
+            std::cout << "send image completed with http status: " << httpCode << std::endl;
         }
-
         // Cleanup
         curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
@@ -356,6 +413,8 @@ int main() {
     signal(SIGINT, interruptHandler);
     // Read WiFi credentials and remote base URL.
     setWifiCredentials();
+    // If no SSID is set, scan QR code.
+    getWifiQR();
     // Connect to WiFi and remote server.
     connectToWifi();
     // Connect to device using wifi

@@ -2,11 +2,19 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "main-debug2.cpp",
+      "name": "main-debug.cpp",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/main-debug",
-      "args": [],
+      "args": [
+        "-std=c++11",
+        "-g",
+        "main-debug.cpp",
+        "-lcurl",
+        "-o",
+        "main-debug",
+        "`pkg-config --cflags --libs opencv4`"
+      ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
