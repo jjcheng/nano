@@ -21,7 +21,6 @@
 #include <time.h>
 #include <functional>
 #include <map>
-#include <filesystem>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -101,20 +100,23 @@ void setWifiCredentialFromText(const std::string& text) {
     }
     std::cout << "SSID: " << wifiSSID << " PASSWORD: " << wifiPassword << "REMOTEBASEURL: " << remoteBaseUrl << std::endl;
     std::string wifiConfig = "ssid:" + wifiSSID + "\npassword:" + wifiPassword + "\nremoteBaseUrl:" + remoteBaseUrl;
-    // Check if file exists
-    if (std::filesystem::exists(WIFI_CONFIG_FILE_PATH)) {
-        std::cout << "File exists. Updating content...\n";
-    } else {
-        std::cout << "File does not exist. Creating new file...\n";
-    }
-    // Open file in truncate mode (overwrite if exists, create if not)
+    //create new file if doestn't exist
     std::ofstream file(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
-    if (!file) {
-        std::cerr << "Error opening/creating file.\n";
-        return;
+    if (file.is_open()) {
+        file << wifiConfig;
+        file.close();
+    } else {
+        std::cerr << "Unable to open file: " << WIFI_CONFIG_FILE_PATH << std::endl;
     }
-    file << wifiConfig; // Write new text
-    file.close();
+
+    // Open file in truncate mode (overwrite if exists, create if not)
+    // std::ofstream file(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
+    // if (!file) {
+    //     std::cerr << "Error opening/creating file.\n";
+    //     return;
+    // }
+    // file << wifiConfig; // Write new text
+    // file.close();
 }
 
 // Connect to WiFi using system commands.
