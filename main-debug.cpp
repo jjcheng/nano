@@ -27,8 +27,8 @@
 #include <opencv2/objdetect.hpp>
 
 #define BUFFER_SIZE 4096
-#define WIFI_CONFIG_FILE_PATH "/tmp/wifi_config"
-#define SAVE_IMAGE_PATH "/tmp/captured.jpg"
+#define WIFI_CONFIG_FILE_PATH "tmp/wifi_config"
+#define SAVE_IMAGE_PATH "tmp/captured.jpg"
 #define CONF_THRESHOLD 0.5
 #define IOU_THRESHOLD 0.5
 #define NO_CHANGE_FRAME_LIMIT 30
