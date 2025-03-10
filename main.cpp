@@ -95,10 +95,11 @@ void cleanUp() {
 // Read WiFi config from file and set credentials.
 void setWifiCredentials() {
     std::ifstream file(WIFI_CONFIG_FILE_PATH);
-    //if no such file, return
-    if (!file.good()) {
+    if (!file) {
+        std::printf("no wifi_config file\n");
         return;
     }
+    //read file
     std::stringstream buffer;
     buffer << file.rdbuf();
     std::string text = buffer.str();
@@ -124,28 +125,22 @@ void setWifiCredentialFromText(const std::string& text) {
             }
         }
     }
-    std::cout << "SSID: " << wifiSSID << "\nPASSWORD: " << wifiPassword
-              << "\nREMOTEBASEURL: " << remoteBaseUrl << std::endl;
+    std::cout << "SSID: " << wifiSSID << " PASSWORD: " << wifiPassword << "REMOTEBASEURL: " << remoteBaseUrl << std::endl;
     std::string wifiConfig = "ssid:" + wifiSSID + "\npassword:" + wifiPassword + "\nremoteBaseUrl:" + remoteBaseUrl;
-    // Create the config file if it doesn't exist.
-    std::ifstream infile(WIFI_CONFIG_FILE_PATH);
-    if (!infile.good()) {
-        std::ofstream outfile(WIFI_CONFIG_FILE_PATH);
-        if (!outfile) {
-            std::cerr << "Failed to create file: " << WIFI_CONFIG_FILE_PATH << std::endl;
-            return;
-        }
-        outfile.close();
-        std::cout << "File created successfully: " << WIFI_CONFIG_FILE_PATH << std::endl;
+    // Check if file exists
+    if (std::filesystem::exists(WIFI_CONFIG_FILE_PATH)) {
+        std::cout << "File exists. Updating content...\n";
+    } else {
+        std::cout << "File does not exist. Creating new file...\n";
     }
-    // Write updated configuration.
-    std::ofstream ofs(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
-    if (!ofs) {
-        std::cerr << "Failed to open file: " << WIFI_CONFIG_FILE_PATH << std::endl;
+    // Open file in truncate mode (overwrite if exists, create if not)
+    std::ofstream file(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
+    if (!file) {
+        std::cerr << "Error opening/creating file.\n";
         return;
     }
-    ofs << wifiConfig;
-    ofs.close();
+    file << wifiConfig; // Write new text
+    file.close();
 }
 
 // Scan for a QR code and set WiFi credentials.
