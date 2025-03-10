@@ -57,7 +57,7 @@ std::string myIp = "";
 volatile sig_atomic_t interrupted = 0;
 
 // Forward declarations
-std::string getIPAddress();
+std::string getIPAddress(const char* interfaceName = "eth0");
 void sendImage();
 bool runCommand(const std::string& command);
 bool httpGetRequest(const std::string &host, const std::string &path);
@@ -190,7 +190,7 @@ void connectToDevice() {
             break;
         } else {
             std::cerr << "Failed to connect to remote" << std::endl;
-            if (getIPAddress().empty()) {
+            if (getIPAddress("eth0").empty()) {
                 connectToWifi();
             }
             std::this_thread::sleep_for(std::chrono::seconds(3));
