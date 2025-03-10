@@ -41,6 +41,7 @@
 #define CHANGE_THRESHOLD_PERCENT 0.10
 
 // YOLO defines
+#define MODEL_FILE_PATH "/root/detect.cvimodel"
 #define MODEL_CLASS_CNT 3 //underline, highlight, pen
 #define MODEL_THRESH 0.5
 #define MODEL_NMS_THRESH 0.5
@@ -92,7 +93,7 @@ void cleanUp() {
 }
 
 // Read WiFi config from file and set credentials.
-void setWifiConfidentials() {
+void setWifiCredentials() {
     std::ifstream file(WIFI_CONFIG_FILE_PATH);
     //if no such file, return
     if (!file.good()) {
@@ -378,7 +379,7 @@ bool initModel() {
     }
     // Setup algorithm parameters
     YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
-    yolov8_param.cls = 3;
+    yolov8_param.cls = MODEL_CLASS_CNT;
     printf("class count %d\n", yolov8_param.cls);
     printf("Setting YOLOv8 algorithm parameters\n");
     ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
@@ -386,15 +387,14 @@ bool initModel() {
         printf("Cannot set YOLOv8 algorithm parameters %#x\n", ret);
         return false;
     }
-    CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
-    CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, 0.5);
-    // open model and set conf & nms threshold
-    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, "/root/detect.cvimodel");
+    CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, CONF_THRESHOLD);
+    CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, IOU_THRESHOLD);
+    // open model
+    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_FILE_PATH);
     if (ret != CVI_SUCCESS) {
         printf("open model failed with %#x!\n", ret);
         return false;
     }
-
     // int vpssgrp_width = 320;
     // int vpssgrp_height = 320;
     // CVI_S32 ret = MMF_INIT_HELPER2(vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1,
@@ -533,11 +533,10 @@ int main() {
     signal(SIGINT, interruptHandler);
     // Initialize YOLOv8 model before detection.
     if (!initModel()) {
-        printf("Yolo model initialization failed\n");
         cleanUp();
     }
     // Read WiFi credentials and remote base URL.
-    setWifiConfidentials();
+    setWifiCredentials();
     // If no SSID is set, scan QR code.
     getWifiQR();
     // Connect to WiFi and remote server.

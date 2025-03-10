@@ -38,3 +38,4 @@ main-debug.*
 libs/
 build/
 venv/
+tmp/

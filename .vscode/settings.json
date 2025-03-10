@@ -58,6 +58,7 @@
     "iostream": "cpp",
     "format": "cpp",
     "stacktrace": "cpp",
-    "thread": "cpp"
+    "thread": "cpp",
+    "functional": "cpp"
   }
 }
