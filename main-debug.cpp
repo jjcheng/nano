@@ -293,7 +293,5 @@ int main() {
     connectToWifi();
     // Connect to device using wifi
     connectToDevice();
-    // Start the main processing loop.
-    loop();
     return 0;
 }
