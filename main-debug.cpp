@@ -303,38 +303,52 @@ void sendImage() {
         std::cerr << "Error: Could not encode image!" << std::endl;
         return;
     }
-    std::string uploadUrl = remoteBaseUrl + "/upload";
-    std::ostringstream request;
-    request << "POST " << uploadUrl << " HTTP/1.1\r\n"
-            << "Host: " << myIp << "\r\n"
-            << "Content-Type: application/octet-stream\r\n"
-            << "Content-Length: " << imgData.size() << "\r\n"
-            << "Connection: close\r\n\r\n";
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        std::cerr << "Error: Cannot create socket!" << std::endl;
+    // Convert the OpenCV Mat image to a buffer (binary data)
+    std::vector<uchar> buffer;
+    if (!cv::imencode(".jpg", image, buffer)) {  // Encode the image as JPEG <button class="citation-flag" data-index="8">
+        std::cerr << "Failed to encode the image." << std::endl;
         return;
     }
-    struct sockaddr_in serverAddr{};
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(8080);
-    // Ensure remoteBaseUrl is an IP address; otherwise, use DNS resolution.
-    serverAddr.sin_addr.s_addr = inet_addr(remoteBaseUrl.c_str());
-    if (connect(sock, reinterpret_cast<struct sockaddr*>(&serverAddr), sizeof(serverAddr)) < 0) {
-        std::cerr << "Error: Cannot connect to server!" << std::endl;
-        close(sock);
+    CURL* curl;
+    CURLcode res;
+    // Initialize libcurl
+    curl = curl_easy_init();
+    if (curl) {
+        // Set the URL
+        std::string url = remoteBaseUrl + "/upload";
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+
+        // Set the HTTP method to POST
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+
+        // Set the raw binary data as the POST body
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, buffer.data());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, buffer.size());
+
+        // Set the Content-Type header to application/octet-stream
+        struct curl_slist* headers = nullptr;
+        headers = curl_slist_append(headers, "Content-Type: application/octet-stream");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+        // Perform the request
+        res = curl_easy_perform(curl);
+
+        // Check for errors
+        if (res != CURLE_OK) {
+            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+        } else {
+            long httpCode = 0;
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+            std::cout << "HTTP Status Code: " << httpCode << std::endl;
+        }
+
+        // Cleanup
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+    } else {
+        std::cerr << "Failed to initialize libcurl." << std::endl;
         return;
     }
-    std::string header = request.str();
-    send(sock, header.c_str(), header.length(), 0);
-    send(sock, reinterpret_cast<const char*>(imgData.data()), imgData.size(), 0);
-    char buffer[BUFFER_SIZE];
-    int bytesRead = recv(sock, buffer, sizeof(buffer) - 1, 0);
-    if (bytesRead > 0) {
-        buffer[bytesRead] = '\0';
-        std::cout << "Server Response:\n" << buffer << std::endl;
-    }
-    close(sock);
 }
 
 int main() {
@@ -346,5 +360,7 @@ int main() {
     connectToWifi();
     // Connect to device using wifi
     connectToDevice();
+    //send image
+    sendImage();
     return 0;
 }
