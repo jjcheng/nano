@@ -245,7 +245,7 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
 }
 
 // Function to perform an HTTP GET request using libcurl
-HttpResponse httpGetRequest(const std::string& url) {
+HttpResponse http_get(const std::string& url) {
     CURL* curl;
     CURLcode res;
     HttpResponse response;
