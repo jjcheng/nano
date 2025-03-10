@@ -171,7 +171,7 @@ void connectToDevice() {
     while (!interrupted) {
         std::string url = remoteBaseUrl + "/ping?id=" + myIp;
         std::cout << "Connecting to remote URL " << url << std::endl;
-        HttpResponse response = httpGetRequest(url);
+        HttpResponse response = http_get(url);
         if (response.statusCode == 200) {
             std::cout << "Successfully connected to remote" << std::endl;
             break;
