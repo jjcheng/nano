@@ -34,6 +34,7 @@
 #include <net/if.h>      // For ifreq
 #include <arpa/inet.h>   // For inet_ntoa
 #include <unistd.h>      // For close
+#include <curl/curl.h>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -60,7 +61,8 @@ volatile sig_atomic_t interrupted = 0;
 std::string getIPAddress(const char* interfaceName);
 void sendImage();
 bool runCommand(const std::string& command);
-bool httpGetRequest(const std::string &host, const std::string &path);
+//bool httpGetRequest(const std::string &host, const std::string &path);
+std::pair<int, std::string> http_get(const std::string& url);
 void setWifiCredentialFromText(const std::string& text);
 void cleanUp();
 void connectToDevice();
@@ -164,7 +166,8 @@ void connectToDevice() {
     while (!interrupted) {
         std::string url = remoteBaseUrl + "/ping?id=" + myIp;
         std::cout << "Connecting to remote URL " << url << std::endl;
-        if (httpGetRequest(remoteBaseUrl, "/ping?id=" + myIp)) {
+        auto [status, body] = http_get(url);
+        if (status == 200) {
             std::cout << "Successfully connected to remote" << std::endl;
             break;
         } else {
@@ -188,45 +191,78 @@ bool runCommand(const std::string& command) {
 }
 
 // Make an HTTP GET request.
-bool httpGetRequest(const std::string &host, const std::string &path) {
-    struct addrinfo hints{}, *res;
-    int sockfd;
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    if (getaddrinfo(host.c_str(), "80", &hints, &res) != 0) {
-        std::cerr << "Failed to resolve host: " << host << std::endl;
-        return false;
-    }
-    sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if (sockfd < 0) {
-        std::cerr << "Socket creation failed!" << std::endl;
-        freeaddrinfo(res);
-        return false;
-    }
-    if (connect(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
-        std::cerr << "Connection failed!" << std::endl;
-        close(sockfd);
-        freeaddrinfo(res);
-        return false;
-    }
-    freeaddrinfo(res);
+// bool httpGetRequest(const std::string &host, const std::string &path) {
+//     struct addrinfo hints{}, *res;
+//     int sockfd;
+//     hints.ai_family = AF_INET;
+//     hints.ai_socktype = SOCK_STREAM;
+//     if (getaddrinfo(host.c_str(), "80", &hints, &res) != 0) {
+//         std::cerr << "Failed to resolve host: " << host << std::endl;
+//         return false;
+//     }
+//     sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+//     if (sockfd < 0) {
+//         std::cerr << "Socket creation failed!" << std::endl;
+//         freeaddrinfo(res);
+//         return false;
+//     }
+//     if (connect(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
+//         std::cerr << "Connection failed!" << std::endl;
+//         close(sockfd);
+//         freeaddrinfo(res);
+//         return false;
+//     }
+//     freeaddrinfo(res);
     
-    std::string request = "GET " + path + " HTTP/1.1\r\n"
-                          "Host: " + host + "\r\n"
-                          "Connection: close\r\n\r\n";
-    if (send(sockfd, request.c_str(), request.length(), 0) < 0) {
-        std::cerr << "Send failed!" << std::endl;
-        close(sockfd);
-        return false;
+//     std::string request = "GET " + path + " HTTP/1.1\r\n"
+//                           "Host: " + host + "\r\n"
+//                           "Connection: close\r\n\r\n";
+//     if (send(sockfd, request.c_str(), request.length(), 0) < 0) {
+//         std::cerr << "Send failed!" << std::endl;
+//         close(sockfd);
+//         return false;
+//     }
+//     char buffer[BUFFER_SIZE];
+//     ssize_t bytesReceived;
+//     while (!interrupted && (bytesReceived = recv(sockfd, buffer, BUFFER_SIZE - 1, 0)) > 0) {
+//         buffer[bytesReceived] = '\0';
+//         std::cout << buffer;
+//     }
+//     close(sockfd);
+//     return true;
+// }
+
+static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
+    size_t total_size = size * nmemb;
+    output->append(static_cast<char*>(contents), total_size);
+    return total_size;
+}
+
+std::pair<int, std::string> http_get(const std::string& url) {
+    CURL* curl = curl_easy_init();
+    std::string response;
+    long http_code = 0;
+
+    if(curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "cpp-http-get/1.0");
+
+        CURLcode res = curl_easy_perform(curl);
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+        if(res != CURLE_OK) {
+            response = "Error: " + std::string(curl_easy_strerror(res));
+        }
+
+        curl_easy_cleanup(curl);
+    } else {
+        response = "Error: Failed to initialize CURL";
+        http_code = -1;
     }
-    char buffer[BUFFER_SIZE];
-    ssize_t bytesReceived;
-    while (!interrupted && (bytesReceived = recv(sockfd, buffer, BUFFER_SIZE - 1, 0)) > 0) {
-        buffer[bytesReceived] = '\0';
-        std::cout << buffer;
-    }
-    close(sockfd);
-    return true;
+
+    return {static_cast<int>(http_code), response};
 }
 
 // Upload an image by saving, encoding to JPEG, and sending via HTTP POST.
