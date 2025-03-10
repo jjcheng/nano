@@ -54,6 +54,11 @@ std::string wifiPassword = "";
 std::string remoteBaseUrl = "";
 std::string myIp = "";
 
+struct HttpResponse {
+    std::string body;       // Response body
+    long statusCode;        // HTTP status code
+};
+
 // Use sig_atomic_t for safe signal handling
 volatile sig_atomic_t interrupted = 0;
 
@@ -62,7 +67,7 @@ std::string getIPAddress(const char* interfaceName);
 void sendImage();
 bool runCommand(const std::string& command);
 //bool httpGetRequest(const std::string &host, const std::string &path);
-std::pair<int, std::string> http_get(const std::string& url);
+HttpResponse http_get(const std::string& url);
 void setWifiCredentialFromText(const std::string& text);
 void cleanUp();
 void connectToDevice();
@@ -166,8 +171,7 @@ void connectToDevice() {
     while (!interrupted) {
         std::string url = remoteBaseUrl + "/ping?id=" + myIp;
         std::cout << "Connecting to remote URL " << url << std::endl;
-        auto [status, body] = http_get(url);
-        if (status == 200) {
+        if (http_get(url).statusCode == 200) {
             std::cout << "Successfully connected to remote" << std::endl;
             break;
         } else {
@@ -232,37 +236,47 @@ bool runCommand(const std::string& command) {
 //     return true;
 // }
 
-static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
-    size_t total_size = size * nmemb;
-    output->append(static_cast<char*>(contents), total_size);
-    return total_size;
+// Callback function to handle the response data
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+    size_t totalSize = size * nmemb;
+    static_cast<std::string*>(userp)->append(static_cast<char*>(contents), totalSize);
+    return totalSize;
 }
 
-std::pair<int, std::string> http_get(const std::string& url) {
-    CURL* curl = curl_easy_init();
-    std::string response;
-    long http_code = 0;
+// Function to perform an HTTP GET request using libcurl
+HttpResponse httpGetRequest(const std::string& url) {
+    CURL* curl;
+    CURLcode res;
+    HttpResponse response;
 
-    if(curl) {
+    // Initialize libcurl
+    curl = curl_easy_init();
+    if (curl) {
+        // Set the URL
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+
+        // Set the callback function to handle the response
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "cpp-http-get/1.0");
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
 
-        CURLcode res = curl_easy_perform(curl);
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+        // Perform the request
+        res = curl_easy_perform(curl);
 
-        if(res != CURLE_OK) {
-            response = "Error: " + std::string(curl_easy_strerror(res));
+        // Check for errors
+        if (res != CURLE_OK) {
+            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+        } else {
+            // Retrieve the HTTP status code
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.statusCode);
         }
 
+        // Cleanup
         curl_easy_cleanup(curl);
     } else {
-        response = "Error: Failed to initialize CURL";
-        http_code = -1;
+        std::cerr << "Failed to initialize libcurl." << std::endl;
     }
 
-    return {static_cast<int>(http_code), response};
+    return response;
 }
 
 // Upload an image by saving, encoding to JPEG, and sending via HTTP POST.

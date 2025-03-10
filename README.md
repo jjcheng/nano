@@ -23,7 +23,8 @@ apt install libopencv-dev
 
 ## DEBUG WITH CVI_TEK AS IT IS NOT COMPATIBLE
 
-g++ -std=c++11 -g main-debug.cpp -o main-debug `pkg-config --cflags --libs opencv4`
+apt-get install libcurl4-openssl-dev
+g++ -std=c++11 -g main-debug.cpp -o main-debug -lcurl `pkg-config --cflags --libs opencv4`
 
 not working
 g++ -std=c++11 -g main-debug.cpp \
