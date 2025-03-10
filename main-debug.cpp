@@ -68,11 +68,11 @@ void cleanUp() {
 // Read WiFi config from file and set credentials.
 void setWifiCredentials() {
     std::ifstream file(WIFI_CONFIG_FILE_PATH);
-    //if no such file, return
-    if (!file.good()) {
+    if (!file) {
         std::printf("no wifi_config file\n");
         return;
     }
+    //read file
     std::stringstream buffer;
     buffer << file.rdbuf();
     std::string text = buffer.str();
