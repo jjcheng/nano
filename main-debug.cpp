@@ -157,27 +157,6 @@ std::string getIPAddress(const char* interfaceName = "eth0") {
     }
     freeifaddrs(ifaddr);
     return std::string(ip);
-    // int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    // if (sockfd < 0) {
-    //     std::cerr << "Error creating socket" << std::endl;
-    //     return "";
-    // }
-
-    // struct ifreq ifr;
-    // memset(&ifr, 0, sizeof(ifr));  // Clear the structure
-    // strncpy(ifr.ifr_name, interfaceName, IFNAMSIZ - 1);  // Set interface name
-
-    // if (ioctl(sockfd, SIOCGIFADDR, &ifr) == -1) {
-    //     std::cerr << "Error getting IPv4 address for interface: " << interfaceName << std::endl;
-    //     close(sockfd);
-    //     return "";
-    // }
-
-    // close(sockfd);
-
-    // // Extract and convert the IPv4 address
-    // struct sockaddr_in* addr = reinterpret_cast<struct sockaddr_in*>(&ifr.ifr_addr);
-    // return inet_ntoa(addr->sin_addr);  // Return as string
 }
 
 // Connect to the remote server by pinging a URL.

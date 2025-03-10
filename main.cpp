@@ -61,7 +61,7 @@ cvitdl_handle_t tdl_handle = NULL;
 volatile sig_atomic_t interrupted = 0;
 
 // Forward declarations
-std::string getIPAddress();
+std::string getIPAddress(const char* interfaceName);
 bool detect(cv::Mat &image);
 void sendImage();
 bool runCommand(const std::string& command);
@@ -207,12 +207,12 @@ void connectToWifi() {
         getWifiQR();
         return;
     }
-    myIp = getIPAddress();
+    myIp = getIPAddress("eth0"); //"wlan0" wifi
     std::cout << "Connected to " << wifiSSID << " with IP " << myIp << std::endl;
 }
 
 // Get the IP address of interface "wlan0".
-std::string getIPAddress() {
+std::string getIPAddress(const char* interfaceName = "eth0") {
     struct ifaddrs *ifaddr, *ifa;
     char ip[INET_ADDRSTRLEN] = {0};
     if (getifaddrs(&ifaddr) == -1) {
@@ -222,7 +222,7 @@ std::string getIPAddress() {
     for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr == nullptr)
             continue;
-        if (ifa->ifa_addr->sa_family == AF_INET && strcmp(ifa->ifa_name, "wlan0") == 0) {
+        if (ifa->ifa_addr->sa_family == AF_INET && strcmp(ifa->ifa_name, interfaceName) == 0) {
             struct sockaddr_in *sin = reinterpret_cast<struct sockaddr_in *>(ifa->ifa_addr);
             inet_ntop(AF_INET, &sin->sin_addr, ip, INET_ADDRSTRLEN);
             break;
