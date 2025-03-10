@@ -25,6 +25,7 @@
 #include <time.h>
 #include <functional>
 #include <map>
+#include <curl/curl.h>
 
 // custom includes
 #include "core/cvi_tdl_types_mem_internal.h"
@@ -61,11 +62,11 @@ cvitdl_handle_t tdl_handle = NULL;
 volatile sig_atomic_t interrupted = 0;
 
 // Forward declarations
-std::string getIPAddress(const char* interfaceName);
+std::string getIPAddress();
 bool detect(cv::Mat &image);
 void sendImage();
 bool runCommand(const std::string& command);
-bool httpGetRequest(const std::string &host, const std::string &path);
+HttpResponse http_get(const std::string& url);
 void setWifiCredentialFromText(const std::string& text);
 std::string detectQR();
 void openCamera();
@@ -207,12 +208,12 @@ void connectToWifi() {
         getWifiQR();
         return;
     }
-    myIp = getIPAddress("eth0"); //"wlan0" wifi
+    myIp = getIPAddress();
     std::cout << "Connected to " << wifiSSID << " with IP " << myIp << std::endl;
 }
 
 // Get the IP address of interface "wlan0".
-std::string getIPAddress(const char* interfaceName = "eth0") {
+std::string getIPAddress() {
     struct ifaddrs *ifaddr, *ifa;
     char ip[INET_ADDRSTRLEN] = {0};
     if (getifaddrs(&ifaddr) == -1) {
@@ -222,7 +223,7 @@ std::string getIPAddress(const char* interfaceName = "eth0") {
     for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr == nullptr)
             continue;
-        if (ifa->ifa_addr->sa_family == AF_INET && strcmp(ifa->ifa_name, interfaceName) == 0) {
+        if (ifa->ifa_addr->sa_family == AF_INET && strcmp(ifa->ifa_name, INTERFACE_NAME) == 0) {
             struct sockaddr_in *sin = reinterpret_cast<struct sockaddr_in *>(ifa->ifa_addr);
             inet_ntop(AF_INET, &sin->sin_addr, ip, INET_ADDRSTRLEN);
             break;
@@ -235,9 +236,10 @@ std::string getIPAddress(const char* interfaceName = "eth0") {
 // Connect to the remote server by pinging a URL.
 void connectToDevice() {
     while (!interrupted) {
-        std::string url = remoteBaseUrl + "/ping?id=" + myIp;
+        std::string url = remoteBaseUrl + "/ping?ip=" + myIp;
         std::cout << "Connecting to remote URL " << url << std::endl;
-        if (httpGetRequest(remoteBaseUrl, "/ping?id=" + myIp)) {
+        HttpResponse response = http_get(url);
+        if (response.statusCode == 200) {
             std::cout << "Successfully connected to remote" << std::endl;
             break;
         } else {
@@ -260,46 +262,41 @@ bool runCommand(const std::string& command) {
     return true;
 }
 
-// Make an HTTP GET request.
-bool httpGetRequest(const std::string &host, const std::string &path) {
-    struct addrinfo hints{}, *res;
-    int sockfd;
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    if (getaddrinfo(host.c_str(), "80", &hints, &res) != 0) {
-        std::cerr << "Failed to resolve host: " << host << std::endl;
-        return false;
+// Callback function to handle the response data
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+    size_t totalSize = size * nmemb;
+    static_cast<std::string*>(userp)->append(static_cast<char*>(contents), totalSize);
+    return totalSize;
+}
+
+// Function to perform an HTTP GET request using libcurl
+HttpResponse http_get(const std::string& url) {
+    CURL* curl;
+    CURLcode res;
+    HttpResponse response;
+    // Initialize libcurl
+    curl = curl_easy_init();
+    if (curl) {
+        // Set the URL
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        // Set the callback function to handle the response
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
+        // Perform the request
+        res = curl_easy_perform(curl);
+        // Check for errors
+        if (res != CURLE_OK) {
+            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+        } else {
+            // Retrieve the HTTP status code
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.statusCode);
+        }
+        // Cleanup
+        curl_easy_cleanup(curl);
+    } else {
+        std::cerr << "Failed to initialize libcurl." << std::endl;
     }
-    sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if (sockfd < 0) {
-        std::cerr << "Socket creation failed!" << std::endl;
-        freeaddrinfo(res);
-        return false;
-    }
-    if (connect(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
-        std::cerr << "Connection failed!" << std::endl;
-        close(sockfd);
-        freeaddrinfo(res);
-        return false;
-    }
-    freeaddrinfo(res);
-    
-    std::string request = "GET " + path + " HTTP/1.1\r\n"
-                          "Host: " + host + "\r\n"
-                          "Connection: close\r\n\r\n";
-    if (send(sockfd, request.c_str(), request.length(), 0) < 0) {
-        std::cerr << "Send failed!" << std::endl;
-        close(sockfd);
-        return false;
-    }
-    char buffer[BUFFER_SIZE];
-    ssize_t bytesReceived;
-    while (!interrupted && (bytesReceived = recv(sockfd, buffer, BUFFER_SIZE - 1, 0)) > 0) {
-        buffer[bytesReceived] = '\0';
-        std::cout << buffer;
-    }
-    close(sockfd);
-    return true;
+    return response;
 }
 
 // Main processing loop: compares frames and triggers sending image if change is detected.
@@ -463,58 +460,73 @@ bool detect(cv::Mat &image) {
 
 // Upload an image by saving, encoding to JPEG, and sending via HTTP POST.
 void sendImage() {
-    std::cout << "Sending image to remote" << std::endl;
-    if (!setCameraResolution(true)) {
-        return;
-    }
-    cv::Mat frame;
-    cap >> frame;
-    if (frame.empty()) {
-        std::cerr << "Captured empty frame!" << std::endl;
-        return;
-    }
-    if (!cv::imwrite(SAVE_IMAGE_PATH, frame)) {
-        std::cerr << "Failed to save image to path" << std::endl;
-        return;
-    }
+    // std::cout << "Sending image to remote" << std::endl;
+    // if (!setCameraResolution(true)) {
+    //     return;
+    // }
+    // cv::Mat frame;
+    // cap >> frame;
+    // if (frame.empty()) {
+    //     std::cerr << "Captured empty frame!" << std::endl;
+    //     return;
+    // }
+    // if (!cv::imwrite(SAVE_IMAGE_PATH, frame)) {
+    //     std::cerr << "Failed to save image to path" << std::endl;
+    //     return;
+    // }
     std::vector<uchar> imgData;
-    if (!cv::imencode(".jpg", frame, imgData)) {
+    std::string imagePath = "files/test.jpg";
+    cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
+    if (!cv::imencode(".jpg", image, imgData)) {
         std::cerr << "Error: Could not encode image!" << std::endl;
         return;
     }
-    if (imgData.empty()) return;
-    std::string uploadUrl = remoteBaseUrl + "/upload";
-    std::ostringstream request;
-    request << "POST " << uploadUrl << " HTTP/1.1\r\n"
-            << "Host: " << myIp << "\r\n"
-            << "Content-Type: application/octet-stream\r\n"
-            << "Content-Length: " << imgData.size() << "\r\n"
-            << "Connection: close\r\n\r\n";
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        std::cerr << "Error: Cannot create socket!" << std::endl;
+    // Convert the OpenCV Mat image to a buffer (binary data)
+    std::vector<uchar> buffer;
+    if (!cv::imencode(".jpg", image, buffer)) {  // Encode the image as JPEG <button class="citation-flag" data-index="8">
+        std::cerr << "Failed to encode the image." << std::endl;
         return;
     }
-    struct sockaddr_in serverAddr{};
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(8080);
-    // Ensure remoteBaseUrl is an IP address; otherwise, use DNS resolution.
-    serverAddr.sin_addr.s_addr = inet_addr(remoteBaseUrl.c_str());
-    if (connect(sock, reinterpret_cast<struct sockaddr*>(&serverAddr), sizeof(serverAddr)) < 0) {
-        std::cerr << "Error: Cannot connect to server!" << std::endl;
-        close(sock);
+    CURL* curl;
+    CURLcode res;
+    // Initialize libcurl
+    curl = curl_easy_init();
+    if (curl) {
+        // Set the URL
+        std::string url = remoteBaseUrl + "/upload";
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+
+        // Set the HTTP method to POST
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+
+        // Set the raw binary data as the POST body
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, buffer.data());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, buffer.size());
+
+        // Set the Content-Type header to application/octet-stream
+        struct curl_slist* headers = nullptr;
+        headers = curl_slist_append(headers, "Content-Type: application/octet-stream");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+        // Perform the request
+        res = curl_easy_perform(curl);
+
+        // Check for errors
+        if (res != CURLE_OK) {
+            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+        } else {
+            long httpCode = 0;
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+            std::cout << "HTTP Status Code: " << httpCode << std::endl;
+        }
+
+        // Cleanup
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+    } else {
+        std::cerr << "Failed to initialize libcurl." << std::endl;
         return;
     }
-    std::string header = request.str();
-    send(sock, header.c_str(), header.length(), 0);
-    send(sock, reinterpret_cast<const char*>(imgData.data()), imgData.size(), 0);
-    char buffer[BUFFER_SIZE];
-    int bytesRead = recv(sock, buffer, sizeof(buffer) - 1, 0);
-    if (bytesRead > 0) {
-        buffer[bytesRead] = '\0';
-        std::cout << "Server Response:\n" << buffer << std::endl;
-    }
-    close(sock);
 }
 
 int main() {

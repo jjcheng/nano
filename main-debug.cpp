@@ -47,6 +47,7 @@
 #define IOU_THRESHOLD 0.5
 #define NO_CHANGE_FRAME_LIMIT 30
 #define CHANGE_THRESHOLD_PERCENT 0.10
+#define INTERFACE_NAME "eth0" //"wlan0"
 
 // Global variables
 std::string wifiSSID = "";
@@ -63,10 +64,9 @@ struct HttpResponse {
 volatile sig_atomic_t interrupted = 0;
 
 // Forward declarations
-std::string getIPAddress(const char* interfaceName);
+std::string getIPAddress();
 void sendImage();
 bool runCommand(const std::string& command);
-//bool httpGetRequest(const std::string &host, const std::string &path);
 HttpResponse http_get(const std::string& url);
 void setWifiCredentialFromText(const std::string& text);
 void cleanUp();
@@ -141,12 +141,12 @@ void connectToWifi() {
     //     wifiSSID = "";
     //     return;
     // }
-    myIp = getIPAddress("eth0"); //"wlan0" wifi
+    myIp = getIPAddress(); //"wlan0" wifi
     std::cout << "Connected to " << wifiSSID << " with IP " << myIp << std::endl;
 }
 
 // Get the IP address of interface "wlan0".
-std::string getIPAddress(const char* interfaceName = "eth0") {
+std::string getIPAddress() {
     struct ifaddrs *ifaddr, *ifa;
     char ip[INET_ADDRSTRLEN] = {0};
     if (getifaddrs(&ifaddr) == -1) {
@@ -156,7 +156,7 @@ std::string getIPAddress(const char* interfaceName = "eth0") {
     for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr == nullptr)
             continue;
-        if (ifa->ifa_addr->sa_family == AF_INET && strcmp(ifa->ifa_name, interfaceName) == 0) {
+        if (ifa->ifa_addr->sa_family == AF_INET && strcmp(ifa->ifa_name, INTERFACE_NAME) == 0) {
             struct sockaddr_in *sin = reinterpret_cast<struct sockaddr_in *>(ifa->ifa_addr);
             inet_ntop(AF_INET, &sin->sin_addr, ip, INET_ADDRSTRLEN);
             break;
@@ -177,7 +177,7 @@ void connectToDevice() {
             break;
         } else {
             std::cerr << "Failed to connect to remote" << std::endl;
-            if (getIPAddress("eth0").empty()) {
+            if (getIPAddress().empty()) {
                 connectToWifi();
             }
             std::this_thread::sleep_for(std::chrono::seconds(3));
