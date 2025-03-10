@@ -21,6 +21,19 @@
 #include <time.h>
 #include <functional>
 #include <map>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
+#include <string.h>
+#include <string>
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <arpa/inet.h>
+#include <iostream>
+#include <cstring>       // For memset
+#include <sys/ioctl.h>   // For ioctl
+#include <net/if.h>      // For ifreq
+#include <arpa/inet.h>   // For inet_ntoa
+#include <unistd.h>      // For close
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -121,12 +134,12 @@ void connectToWifi() {
     //     wifiSSID = "";
     //     return;
     // }
-    myIp = getIPAddress();
+    myIp = getIPAddress("eth0"); //"wlan0" wifi
     std::cout << "Connected to " << wifiSSID << " with IP " << myIp << std::endl;
 }
 
 // Get the IP address of interface "wlan0".
-std::string getIPAddress() {
+std::string getIPAddress(const char* interfaceName = "eth0") {
     struct ifaddrs *ifaddr, *ifa;
     char ip[INET_ADDRSTRLEN] = {0};
     if (getifaddrs(&ifaddr) == -1) {
@@ -136,7 +149,7 @@ std::string getIPAddress() {
     for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr == nullptr)
             continue;
-        if (ifa->ifa_addr->sa_family == AF_INET && strcmp(ifa->ifa_name, "wlan0") == 0) {
+        if (ifa->ifa_addr->sa_family == AF_INET && strcmp(ifa->ifa_name, interfaceName) == 0) {
             struct sockaddr_in *sin = reinterpret_cast<struct sockaddr_in *>(ifa->ifa_addr);
             inet_ntop(AF_INET, &sin->sin_addr, ip, INET_ADDRSTRLEN);
             break;
@@ -144,6 +157,27 @@ std::string getIPAddress() {
     }
     freeifaddrs(ifaddr);
     return std::string(ip);
+    // int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    // if (sockfd < 0) {
+    //     std::cerr << "Error creating socket" << std::endl;
+    //     return "";
+    // }
+
+    // struct ifreq ifr;
+    // memset(&ifr, 0, sizeof(ifr));  // Clear the structure
+    // strncpy(ifr.ifr_name, interfaceName, IFNAMSIZ - 1);  // Set interface name
+
+    // if (ioctl(sockfd, SIOCGIFADDR, &ifr) == -1) {
+    //     std::cerr << "Error getting IPv4 address for interface: " << interfaceName << std::endl;
+    //     close(sockfd);
+    //     return "";
+    // }
+
+    // close(sockfd);
+
+    // // Extract and convert the IPv4 address
+    // struct sockaddr_in* addr = reinterpret_cast<struct sockaddr_in*>(&ifr.ifr_addr);
+    // return inet_ntoa(addr->sin_addr);  // Return as string
 }
 
 // Connect to the remote server by pinging a URL.
