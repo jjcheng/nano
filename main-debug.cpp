@@ -57,7 +57,7 @@ std::string myIp = "";
 volatile sig_atomic_t interrupted = 0;
 
 // Forward declarations
-std::string getIPAddress(const char* interfaceName = "eth0");
+std::string getIPAddress(const char* interfaceName);
 void sendImage();
 bool runCommand(const std::string& command);
 bool httpGetRequest(const std::string &host, const std::string &path);
