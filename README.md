@@ -26,6 +26,10 @@ apt install libopencv-dev
 apt-get install libcurl4-openssl-dev
 g++ -std=c++11 -g main-debug.cpp -o main-debug -lcurl `pkg-config --cflags --libs opencv4`
 
+### discard all local git changes
+
+git restore --source=HEAD --staged --worktree -- .
+
 not working
 g++ -std=c++11 -g main-debug.cpp \
 -Ilibs/cvitek_tdl_sdk/include \
