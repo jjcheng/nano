@@ -76,7 +76,6 @@ void setWifiCredentials() {
     std::stringstream buffer;
     buffer << file.rdbuf();
     std::string text = buffer.str();
-    std::printf("wifi_config: %s\n", text);
     file.close();
     setWifiCredentialFromText(text);
 }
