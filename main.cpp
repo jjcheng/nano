@@ -80,6 +80,7 @@ void cleanUp();
 bool initModel();
 void connectToDevice();
 void loop();
+bool test();
 
 // Signal handler: only sets the flag.
 void interruptHandler(int signum) {
@@ -146,7 +147,9 @@ void setWifiCredentialFromText(const std::string& text) {
 
 // Scan for a QR code and set WiFi credentials.
 void getWifiQR() {
-    openCamera();
+    if (wifiSSID.empty()) {
+        openCamera();
+    }
     while (wifiSSID.empty() && !interrupted) {
         std::string content = detectQR();
         if (content.empty()) {
@@ -535,6 +538,37 @@ void sendImage() {
     }
 }
 
+bool test() {
+    std::vector<uchar> imgData;
+    std::string imagePath = "/root/files/test.jpg";
+    cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
+    if (!cv::imencode(".jpg", image, imgData)) {
+        std::cerr << "Error: Could not encode image!" << std::endl;
+        return false;
+    }
+    VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image.data);
+    if(frame_ptr == NULL) {
+        std::printf("failed to get frame_ptr\n");
+        return false;
+    }
+    cvtdl_object_t obj_meta = {0};
+    CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
+    // Draw bounding boxes on the image.
+    for (uint32_t i = 0; i < obj_meta.size; i++) {
+        std::printf("detected %d\n", i);
+        cv::Rect r(static_cast<int>(obj_meta.info[i].bbox.x1),
+                   static_cast<int>(obj_meta.info[i].bbox.y1),
+                   static_cast<int>(obj_meta.info[i].bbox.x2 - obj_meta.info[i].bbox.x1),
+                   static_cast<int>(obj_meta.info[i].bbox.y2 - obj_meta.info[i].bbox.y1));
+        if (obj_meta.info[i].classes == 0)
+            cv::rectangle(image, r, BLUE_MAT, 1, 8, 0);
+        else if (obj_meta.info[i].classes == 1)
+            cv::rectangle(image, r, RED_MAT, 1, 8, 0);
+    }
+    // Return true if any object was detected.
+    return (obj_meta.size > 0);
+}
+
 int main() {
     // Set up signal handler.
     signal(SIGINT, interruptHandler);
@@ -542,15 +576,18 @@ int main() {
     if (!initModel()) {
         cleanUp();
     }
-    // Read WiFi credentials and remote base URL.
-    setWifiCredentials();
-    // If no SSID is set, scan QR code.
-    getWifiQR();
-    // Connect to WiFi and remote server.
-    connectToWifi();
-    // Connect to device using wifi
-    connectToDevice();
-    // Start the main processing loop.
-    loop();
+    //test
+    test();
+
+    // // Read WiFi credentials and remote base URL.
+    // setWifiCredentials();
+    // // If no SSID is set, scan QR code.
+    // getWifiQR();
+    // // Connect to WiFi and remote server.
+    // connectToWifi();
+    // // Connect to device using wifi
+    // connectToDevice();
+    // // Start the main processing loop.
+    // loop();
     return 0;
 }
