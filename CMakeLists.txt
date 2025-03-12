@@ -7,18 +7,25 @@ SET(CMAKE_C_COMPILER "$ENV{COMPILER}/riscv64-unknown-linux-musl-gcc")
 SET(CMAKE_CXX_COMPILER "$ENV{COMPILER}/riscv64-unknown-linux-musl-g++")
 SET(CMAKE_C_LINK_EXECUTABLE "$ENV{COMPILER}/riscv64-unknown-linux-musl-ld")
 set(CMAKE_CXX_FLAGS "-march=rv64imafd -O3 -DNDEBUG -D_MIDDLEWARE_V2_ -DC906 -DUSE_TPU_IVE -fsigned-char -Werror=all -Wno-format-truncation -fdiagnostics-color=always -s")
-#set(CMAKE_SYSTEM_PROCESSOR arm)
+
+message("CURL include directories: ${CURL_INCLUDE_DIRS}")
+message("CURL libraries: ${CURL_LIBRARIES}")
+
 
 include_directories(
     $ENV{SDK_PATH}/cvitek_tdl_sdk/include
     $ENV{SDK_PATH}/cvitek_tdl_sdk/include/cvi_tdl
     $ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include
     $ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include/linux
+    $ENV{SDK_PATH}/curl
 )
 set(OpenCV_DIR "${CMAKE_CURRENT_SOURCE_DIR}/opencv-mobile-4.10.0/build/install/lib/cmake/opencv4")
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
+# set(CURL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/curl")
 find_package(CURL REQUIRED)
+# include_directories(${CURL_INCLUDE_DIRS})
+target_include_directories(Jotter PRIVATE ${CURL_INCLUDE_DIRS})
 
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 file(MAKE_DIRECTORY ${EXECUTABLE_OUTPUT_PATH})
@@ -41,6 +48,7 @@ target_link_libraries(Jotter
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/lib
     -lcvi_tdl
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/lib
-    -lpthread -latomic
-    CURL::libcurl 
+    -lpthread 
+    -latomic
+    CURL::libcurl
 )
