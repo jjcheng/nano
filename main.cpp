@@ -40,6 +40,7 @@
 #define IOU_THRESHOLD 0.5
 #define NO_CHANGE_FRAME_LIMIT 30
 #define CHANGE_THRESHOLD_PERCENT 0.10
+#define INTERFACE_NAME "eth0" //"wlan0"
 
 // YOLO defines
 #define MODEL_FILE_PATH "/root/detect.cvimodel"
@@ -60,6 +61,11 @@ cvitdl_handle_t tdl_handle = NULL;
 
 // Use sig_atomic_t for safe signal handling
 volatile sig_atomic_t interrupted = 0;
+
+struct HttpResponse {
+    std::string body;       // Response body
+    long statusCode;        // HTTP status code
+};
 
 // Forward declarations
 std::string getIPAddress();

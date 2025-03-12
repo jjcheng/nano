@@ -18,14 +18,12 @@ include_directories(
 set(OpenCV_DIR "${CMAKE_CURRENT_SOURCE_DIR}/opencv-mobile-4.10.0/build/install/lib/cmake/opencv4")
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
-find_package(CURL REQUIRED)
 
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 file(MAKE_DIRECTORY ${EXECUTABLE_OUTPUT_PATH})
 
 add_executable(Jotter main.cpp)
 
-target_include_directories(Jotter PRIVATE ${CURL_INCLUDE_DIRS})
 target_link_libraries(Jotter
     ${OpenCV_LIBS}
     atomic
@@ -44,5 +42,4 @@ target_link_libraries(Jotter
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/lib
     -lpthread 
     -latomic
-    CURL::libcurl
 )
