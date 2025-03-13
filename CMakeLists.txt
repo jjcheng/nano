@@ -14,7 +14,10 @@ include_directories(
     $ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include
     $ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include/linux
 )
+
 set(OpenCV_DIR "${CMAKE_CURRENT_SOURCE_DIR}/opencv-mobile-4.10.0/build/install/lib/cmake/opencv4")
+set(CURL_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/files/libcurl.so")
+
 find_package(OpenCV REQUIRED)
 find_package(CURL REQUIRED)
 
@@ -25,7 +28,6 @@ add_executable(Jotter main.cpp)
 
 target_link_libraries(Jotter
     ${OpenCV_LIBS}
-    atomic
     -mcpu=c906fdv
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/lib
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/lib/3rd
@@ -40,7 +42,5 @@ target_link_libraries(Jotter
     -lcvi_tdl
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/lib
     -lpthread -latomic
-    ${CURL_LIBRARIES}
+    CURL::libcurl
 )
-
-target_include_directories(Jotter PRIVATE ${CURL_INCLUDE_DIRS})

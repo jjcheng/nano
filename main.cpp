@@ -207,6 +207,10 @@ bool setCameraResolution(bool max) {
 
 // Connect to WiFi using system commands.
 void connectToWifi() {
+    //since connecting to wifi requires writing data to /etc/wpa_supplicant.conf, at this point maybe it's already connected to wifi, check for that first
+    if(checkIsConnectedToWifi()) {
+        std::cout << "Connected to " << wifiSSID << " with IP " << myIp << std::endl;
+    }
     std::cout << "Connecting to " << wifiSSID << std::endl;
     std::string configCmd = "echo 'network={\n    ssid=\"" + wifiSSID + "\"\n    psk=\"" + wifiPassword + "\"\n}' > /etc/wpa_supplicant.conf";
     if (!runCommand(configCmd) ||
@@ -219,6 +223,25 @@ void connectToWifi() {
     }
     myIp = getIPAddress();
     std::cout << "Connected to " << wifiSSID << " with IP " << myIp << std::endl;
+}
+
+bool checkIsConnectedToWifi() {
+    std::string cmd = "ip addr show " + INTERFACE_NAME;
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        std::cerr << "Failed to run command: " << cmd << "\n";
+        return false;
+    }
+    char buffer[128];
+    bool connected = false;
+    while (fgets(buffer, sizeof(buffer), pipe)) {
+        if (strstr(buffer, "inet ")) { // found an IP address
+            connected = true;
+            break;
+        }
+    }
+    pclose(pipe);
+    return connected;
 }
 
 // Get the IP address of interface "wlan0".
