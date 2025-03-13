@@ -79,6 +79,7 @@ void openCamera();
 void cleanUp();
 bool initModel();
 void connectToDevice();
+bool checkIsConnectedToWifi();
 void loop();
 bool test();
 
@@ -226,22 +227,23 @@ void connectToWifi() {
 }
 
 bool checkIsConnectedToWifi() {
-    std::string cmd = "ip addr show " + INTERFACE_NAME;
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        std::cerr << "Failed to run command: " << cmd << "\n";
-        return false;
-    }
-    char buffer[128];
-    bool connected = false;
-    while (fgets(buffer, sizeof(buffer), pipe)) {
-        if (strstr(buffer, "inet ")) { // found an IP address
-            connected = true;
-            break;
-        }
-    }
-    pclose(pipe);
-    return connected;
+    // std::string cmd = "ip addr show " + INTERFACE_NAME;
+    // FILE* pipe = popen(cmd.c_str(), "r");
+    // if (!pipe) {
+    //     std::cerr << "Failed to run command: " << cmd << "\n";
+    //     return false;
+    // }
+    // char buffer[128];
+    // bool connected = false;
+    // while (fgets(buffer, sizeof(buffer), pipe)) {
+    //     if (strstr(buffer, "inet ")) { // found an IP address
+    //         connected = true;
+    //         break;
+    //     }
+    // }
+    // pclose(pipe);
+    // return connected;
+    return getIPAddress() != "";
 }
 
 // Get the IP address of interface "wlan0".
@@ -385,7 +387,7 @@ bool initModel() {
     }
     int vpssgrp_width = 320;
     int vpssgrp_height = 320;
-    CVI_S32 ret = MMF_INIT_HELPER2(vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1,
+    ret = MMF_INIT_HELPER2(vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1,
                                    vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1);
     if (ret != CVI_TDL_SUCCESS) {
         printf("Init sys failed with %#x!\n", ret);
