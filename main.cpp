@@ -81,7 +81,7 @@ bool initModel();
 void connectToDevice();
 bool checkIsConnectedToWifi();
 void loop();
-bool test();
+void testDetect();
 
 // Signal handler: only sets the flag.
 void interruptHandler(int signum) {
@@ -91,6 +91,7 @@ void interruptHandler(int signum) {
 
 // Clean up resources before exit.
 void cleanUp() {
+    printf("cleanning up...\n");
     if (cap.isOpened()) {
         cap.release();
     }
@@ -269,21 +270,21 @@ std::string getIPAddress() {
 
 // Connect to the remote server by pinging a URL.
 void connectToDevice() {
-    while (!interrupted) {
-        std::string url = remoteBaseUrl + "/ping?ip=" + myIp;
-        std::cout << "Connecting to remote URL " << url << std::endl;
-        HttpResponse response = http_get(url);
-        if (response.statusCode == 200) {
-            std::cout << "Successfully connected to remote" << std::endl;
-            break;
-        } else {
-            std::cerr << "Failed to connect to remote" << std::endl;
-            if (getIPAddress().empty()) {
-                connectToWifi();
-            }
-            std::this_thread::sleep_for(std::chrono::seconds(3));
-        }
-    }
+    // while (!interrupted) {
+    //     std::string url = remoteBaseUrl + "/ping?ip=" + myIp;
+    //     std::cout << "Connecting to remote URL " << url << std::endl;
+    //     HttpResponse response = http_get(url);
+    //     if (response.statusCode == 200) {
+    //         std::cout << "Successfully connected to remote" << std::endl;
+    //         break;
+    //     } else {
+    //         std::cerr << "Failed to connect to remote" << std::endl;
+    //         if (getIPAddress().empty()) {
+    //             connectToWifi();
+    //         }
+    //         std::this_thread::sleep_for(std::chrono::seconds(3));
+    //     }
+    // }
 }
 
 // Run a system command and return true if successful.
@@ -344,7 +345,6 @@ void loop() {
         cap >> img;
         if (img.empty())
             continue;
-        
         if (changedThreshold == 0) {
             changedThreshold = static_cast<int>(img.cols * img.rows * CHANGE_THRESHOLD_PERCENT);
         }
@@ -380,47 +380,50 @@ void loop() {
 
 // Initialize YOLOv8 model and set parameters.
 bool initModel() {
-    CVI_S32 ret = CVI_TDL_CreateHandle(&tdl_handle);
+    printf("init mmf\n");
+    int vpssgrp_width = 320;
+    int vpssgrp_height = 320;
+    CVI_S32 ret = MMF_INIT_HELPER2(vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1,
+                                   vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1);
+    if (ret != CVI_TDL_SUCCESS) {
+        printf("Init sys failed with %#x!\n", ret);
+        return false;
+    }
+    ret = CVI_TDL_CreateHandle(&tdl_handle);
     if (ret != CVI_SUCCESS) {
         printf("Create tdl handle failed with %#x!\n", ret);
         return false;
     }
-    int vpssgrp_width = 320;
-    int vpssgrp_height = 320;
-    ret = MMF_INIT_HELPER2(vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1,
-                                   vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1);
-    if (ret != CVI_TDL_SUCCESS) {
-        printf("Init sys failed with %#x!\n", ret);
-        return ret;
-    }
-    // Setup preprocessing parameters.
+    // setup preprocess
     YoloPreParam preprocess_cfg = CVI_TDL_Get_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
     for (int i = 0; i < 3; i++) {
         preprocess_cfg.factor[i] = 0.0039216;
         preprocess_cfg.mean[i] = 0;
     }
     preprocess_cfg.format = PIXEL_FORMAT_RGB_888_PLANAR;
+    printf("setup yolov8 param \n");
     ret = CVI_TDL_Set_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, preprocess_cfg);
     if (ret != CVI_SUCCESS) {
-        printf("Cannot set YOLOv8 preprocess parameters %#x\n", ret);
+        printf("Can not set yolov8 preprocess parameters %#x\n", ret);
         return false;
     }
-    // Setup algorithm parameters
+    // setup yolo algorithm preprocess
     YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
     yolov8_param.cls = MODEL_CLASS_CNT;
-    printf("Setting YOLOv8 algorithm parameters\n");
+    printf("setup yolov8 algorithm param \n");
     ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
     if (ret != CVI_SUCCESS) {
-        printf("Cannot set YOLOv8 algorithm parameters %#x\n", ret);
+        printf("Can not set yolov8 algorithm parameters %#x\n", ret);
         return false;
     }
-    CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, CONF_THRESHOLD);
-    CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, IOU_THRESHOLD);
-    // open model
+    // set theshold
+    CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_THRESH);
+    CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_NMS_THRESH);
+    printf("yolov8 algorithm parameters setup success!\n");
     ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_FILE_PATH);
     if (ret != CVI_SUCCESS) {
         printf("open model failed with %#x!\n", ret);
-        return false;
+        return ret;
     }
     return true;
 }
@@ -429,8 +432,6 @@ bool initModel() {
 // Returns true if one or more objects are detected.
 bool detect(cv::Mat &image) {
     printf("Performing detection...\n");
-    // Convert cv::Mat data pointer to VIDEO_FRAME_INFO_S pointer.
-    // (Adjust this cast as required by your custom API.)
     VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image.data);
     cvtdl_object_t obj_meta = {0};
     CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
@@ -519,29 +520,24 @@ void sendImage() {
     }
 }
 
-bool test() {
+void testDetect() {
     std::vector<uchar> imgData;
     std::string imagePath = "/root/files/test.jpg";
     cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
     if (!cv::imencode(".jpg", image, imgData)) {
         std::cerr << "Error: Could not encode image!" << std::endl;
-        return false;
+        return;
     }
-    int vpssgrp_width = 320;
-    int vpssgrp_height = 320;
-    CVI_S32 ret = MMF_INIT_HELPER2(vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1,
-                                   vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1);
-    if (ret != CVI_TDL_SUCCESS) {
-        printf("Init sys failed with %#x!\n", ret);
-        return ret;
-    }
+    printf("converting mat to frame_ptr\n");
     VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image.data);
     if(frame_ptr == NULL) {
         std::printf("failed to get frame_ptr\n");
-        return false;
+        return;
     }
     cvtdl_object_t obj_meta = {0};
+    printf("detecting...\n");
     CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
+    printf("detection completed\n");
     // Draw bounding boxes on the image.
     for (uint32_t i = 0; i < obj_meta.size; i++) {
         std::printf("detected %d\n", i);
@@ -554,8 +550,11 @@ bool test() {
         else if (obj_meta.info[i].classes == 1)
             cv::rectangle(image, r, RED_MAT, 1, 8, 0);
     }
+    if (obj_meta.size == 0) {
+        printf("no detection!!!\n");
+    }
     // Return true if any object was detected.
-    return (obj_meta.size > 0);
+   // return (obj_meta.size > 0);
 }
 
 int main() {
@@ -565,18 +564,16 @@ int main() {
     if (!initModel()) {
         cleanUp();
     }
-    //test
-    test();
-
-    // // Read WiFi credentials and remote base URL.
-    // setWifiCredentials();
-    // // If no SSID is set, scan QR code.
-    // getWifiQR();
-    // // Connect to WiFi and remote server.
-    // connectToWifi();
-    // // Connect to device using wifi
-    // connectToDevice();
-    // // Start the main processing loop.
-    // loop();
+    //testDetect();
+    // Read WiFi credentials and remote base URL.
+    setWifiCredentials();
+    // If no SSID is set, scan QR code.
+    getWifiQR();
+    // Connect to WiFi and remote server.
+    connectToWifi();
+    // Connect to device using wifi
+    connectToDevice();
+    // Start the main processing loop.
+    loop();
     return 0;
 }
