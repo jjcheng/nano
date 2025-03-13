@@ -38,6 +38,5 @@ main-debug.*
 libs/
 build/
 venv/
-*.cpp
 tmp
 instruction.md
