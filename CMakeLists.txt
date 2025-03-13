@@ -42,5 +42,5 @@ target_link_libraries(Jotter
     -lcvi_tdl
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/lib
     -lpthread -latomic
-    CURL::libcurl
+     ${CURL_LIBRARIES}
 )
