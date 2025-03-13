@@ -38,5 +38,6 @@ main-debug.*
 libs/
 build/
 venv/
-*.cpp
+main.cpp
+main-debug.cpp
 instruction.md
