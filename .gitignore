@@ -39,4 +39,5 @@ libs/
 build/
 venv/
 *.cpp
+tmp
 instruction.md
