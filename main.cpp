@@ -33,6 +33,15 @@
 #include "cvi_tdl.h"
 #include "cvi_tdl_media.h"
 
+#define BUFFER_SIZE 4096
+#define WIFI_CONFIG_FILE_PATH "/root/wifi_config"
+#define SAVE_IMAGE_PATH "/root/captured.jpg"
+#define CONF_THRESHOLD 0.5
+#define IOU_THRESHOLD 0.5
+#define NO_CHANGE_FRAME_LIMIT 30
+#define CHANGE_THRESHOLD_PERCENT 0.10
+#define INTERFACE_NAME "eth0" //"wlan0"
+
 // YOLO defines
 #define MODEL_FILE_PATH "/root/detect.cvimodel"
 #define MODEL_CLASS_CNT 3 //underline, highlight, pen

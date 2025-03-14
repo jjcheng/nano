@@ -64,12 +64,12 @@ int main() {
                                    vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1);
     if (ret != CVI_TDL_SUCCESS) {
         printf("Init sys failed with %#x!\n", ret);
-        return false;
+        return 0;
     }
     ret = CVI_TDL_CreateHandle(&tdl_handle);
     if (ret != CVI_SUCCESS) {
         printf("Create tdl handle failed with %#x!\n", ret);
-        return false;
+        return 0;
     }
     // setup preprocess
     YoloPreParam preprocess_cfg = CVI_TDL_Get_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
@@ -82,7 +82,7 @@ int main() {
     ret = CVI_TDL_Set_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, preprocess_cfg);
     if (ret != CVI_SUCCESS) {
         printf("Can not set yolov8 preprocess parameters %#x\n", ret);
-        return false;
+        return 0;
     }
     // setup yolo algorithm preprocess
     YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
@@ -91,7 +91,7 @@ int main() {
     ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
     if (ret != CVI_SUCCESS) {
         printf("Can not set yolov8 algorithm parameters %#x\n", ret);
-        return false;
+        return 0;
     }
     // set theshold
     CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_THRESH);
@@ -100,18 +100,24 @@ int main() {
     ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_FILE_PATH);
     if (ret != CVI_SUCCESS) {
         printf("open model failed with %#x!\n", ret);
-        return ret;
+        return 0;
     }
 
+    cv::VideoCapture cap;
+    cap.open(0);
+    cv::Mat bgr;
+    for (int i = 0; i < 5; i++) cap >> bgr;
+	cap >> bgr;
+
     std::vector<uchar> imgData;
-    std::string imagePath = TEST_IMAGE_PATH;
-    cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
-    if (!cv::imencode(".jpg", image, imgData)) {
+    //std::string imagePath = TEST_IMAGE_PATH;
+    //cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
+    if (!cv::imencode(".jpg", bgr, imgData)) {
         std::cerr << "Error: Could not encode image!" << std::endl;
         return 0;
     }
     printf("converting mat to frame_ptr\n");
-    VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image.data);
+    VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(bgr.data);
     if(frame_ptr == NULL) {
         std::printf("failed to get frame_ptr\n");
         return 0;
@@ -128,9 +134,9 @@ int main() {
                    static_cast<int>(obj_meta.info[i].bbox.x2 - obj_meta.info[i].bbox.x1),
                    static_cast<int>(obj_meta.info[i].bbox.y2 - obj_meta.info[i].bbox.y1));
         if (obj_meta.info[i].classes == 0)
-            cv::rectangle(image, r, BLUE_MAT, 1, 8, 0);
+            cv::rectangle(bgr, r, BLUE_MAT, 1, 8, 0);
         else if (obj_meta.info[i].classes == 1)
-            cv::rectangle(image, r, RED_MAT, 1, 8, 0);
+            cv::rectangle(bgr, r, RED_MAT, 1, 8, 0);
     }
     if (obj_meta.size == 0) {
         printf("no detection!!!\n");
