@@ -108,13 +108,13 @@ int main() {
     cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
     if (!cv::imencode(".jpg", image, imgData)) {
         std::cerr << "Error: Could not encode image!" << std::endl;
-        return;
+        return 0;
     }
     printf("converting mat to frame_ptr\n");
     VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image.data);
     if(frame_ptr == NULL) {
         std::printf("failed to get frame_ptr\n");
-        return;
+        return 0;
     }
     cvtdl_object_t obj_meta = {0};
     printf("detecting...\n");
