@@ -1,7 +1,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/objdetect.hpp>
+// #include <opencv2/objdetect.hpp>
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -33,15 +33,6 @@
 #include "cvi_tdl.h"
 #include "cvi_tdl_media.h"
 
-#define BUFFER_SIZE 4096
-#define WIFI_CONFIG_FILE_PATH "/root/wifi_config"
-#define SAVE_IMAGE_PATH "/root/captured.jpg"
-#define CONF_THRESHOLD 0.5
-#define IOU_THRESHOLD 0.5
-#define NO_CHANGE_FRAME_LIMIT 30
-#define CHANGE_THRESHOLD_PERCENT 0.10
-#define INTERFACE_NAME "eth0" //"wlan0"
-
 // YOLO defines
 #define MODEL_FILE_PATH "/root/detect.cvimodel"
 #define MODEL_CLASS_CNT 3 //underline, highlight, pen
@@ -56,7 +47,7 @@ std::string wifiPassword = "";
 std::string remoteBaseUrl = "";
 std::string myIp = "";
 cv::VideoCapture cap;
-cv::QRCodeDetector qrDecoder;
+// cv::QRCodeDetector qrDecoder;
 cvitdl_handle_t tdl_handle = NULL;
 
 // Use sig_atomic_t for safe signal handling
@@ -168,13 +159,14 @@ void getWifiQR() {
 
 // Detect and decode a QR code from the current camera frame.
 std::string detectQR() {
-    std::printf("Detecting QR code for WiFi\n");
-    cv::Mat frame;
-    cap >> frame;
-    if (frame.empty()) return "";
-    cv::Mat bbox, rectifiedImage;
-    std::string data = qrDecoder.detectAndDecode(frame, bbox, rectifiedImage);
-    return data;
+    // std::printf("Detecting QR code for WiFi\n");
+    // cv::Mat frame;
+    // cap >> frame;
+    // if (frame.empty()) return "";
+    // cv::Mat bbox, rectifiedImage;
+    // std::string data = qrDecoder.detectAndDecode(frame, bbox, rectifiedImage);
+    // return data;
+    return "";
 }
 
 // Open the default camera and warm it up.
