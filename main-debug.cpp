@@ -105,19 +105,36 @@ int main() {
 
     cv::VideoCapture cap;
     cap.open(0);
-    cv::Mat bgr;
-    for (int i = 0; i < 5; i++) cap >> bgr;
-	cap >> bgr;
-
+    if (!cap.isOpened()) {
+        std::cerr << "Error: Could not open camera" << std::endl;
+        return -1;
+    }
+    cv::Mat frame;
+    //warm up the camera
+    for (int i = 0; i < 5; i++) cap >> frame;
+    // Capture a new frame
+    cap >> frame;
+    if (frame.empty()) {
+        std::cerr << "Error: Captured empty frame" << std::endl;
+        return -1;
+    }
+    // Convert the frame to a vector of uchar
+    // std::vector<uchar> buffer;
+    // std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, 90}; // JPEG quality
+    // //get frame buffer
+    // if (!cv::imencode(".jpg", frame, buffer, params)) {
+    //     std::cerr << "Error: Failed to encode image" << std::endl;
+    //     return -1;
+    // }
     std::vector<uchar> imgData;
     //std::string imagePath = TEST_IMAGE_PATH;
     //cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
-    if (!cv::imencode(".jpg", bgr, imgData)) {
+    if (!cv::imencode(".jpg", frame, imgData)) {
         std::cerr << "Error: Could not encode image!" << std::endl;
         return 0;
     }
     printf("converting mat to frame_ptr\n");
-    VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(bgr.data);
+    VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(frame.data);
     if(frame_ptr == NULL) {
         std::printf("failed to get frame_ptr\n");
         return 0;
@@ -134,9 +151,9 @@ int main() {
                    static_cast<int>(obj_meta.info[i].bbox.x2 - obj_meta.info[i].bbox.x1),
                    static_cast<int>(obj_meta.info[i].bbox.y2 - obj_meta.info[i].bbox.y1));
         if (obj_meta.info[i].classes == 0)
-            cv::rectangle(bgr, r, BLUE_MAT, 1, 8, 0);
+            cv::rectangle(frame, r, BLUE_MAT, 1, 8, 0);
         else if (obj_meta.info[i].classes == 1)
-            cv::rectangle(bgr, r, RED_MAT, 1, 8, 0);
+            cv::rectangle(frame, r, RED_MAT, 1, 8, 0);
     }
     if (obj_meta.size == 0) {
         printf("no detection!!!\n");
