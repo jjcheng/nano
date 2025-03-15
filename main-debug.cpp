@@ -46,8 +46,8 @@
 
 
 #define MODEL_CLASS_CNT 3
-#define INPUT_WIDTH 320
-#define INPUT_HEIGHT 320
+#define INPUT_WIDTH 640
+#define INPUT_HEIGHT 640
 #define MODEL_THRESH 0.4
 #define MODEL_NMS_THRESH 0.4
 #define MODEL_FILE_PATH "/root/detect.cvimodel"
