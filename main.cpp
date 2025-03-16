@@ -1,7 +1,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/objdetect.hpp>
+//#include <opencv2/objdetect.hpp>
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -43,7 +43,7 @@
 #define SAVE_IMAGE_PATH "/root/captured.jpg"
 #define CONF_THRESHOLD 0.5
 #define IOU_THRESHOLD 0.5
-#define NO_CHANGE_FRAME_LIMIT 30
+#define NO_CHANGE_FRAME_LIMIT 10
 #define CHANGE_THRESHOLD_PERCENT 0.10
 #define INTERFACE_NAME "wlan0" //eth0
 
@@ -54,6 +54,7 @@
 #define MODEL_NMS_THRESH 0.1
 #define INPUT_WIDTH 640
 #define INPUT_HEIGHT 640
+//#define NO_WIFI
 
 // Global variables
 std::string wifiSSID = "";
@@ -61,7 +62,7 @@ std::string wifiPassword = "";
 std::string remoteBaseUrl = "";
 std::string myIp = "";
 cv::VideoCapture cap;
-cv::QRCodeDetector qrDecoder;
+//cv::QRCodeDetector qrDecoder;
 cvitdl_handle_t tdl_handle = NULL;
 
 // Use sig_atomic_t for safe signal handling
@@ -87,6 +88,7 @@ void connectToDevice();
 bool checkIsConnectedToWifi();
 void loop();
 void testDetect();
+void testCamera();
 
 // Signal handler: only sets the flag.
 void interruptHandler(int signum) {
@@ -173,13 +175,14 @@ void getWifiQR() {
 
 // Detect and decode a QR code from the current camera frame.
 std::string detectQR() {
-    std::printf("Detecting QR code for WiFi\n");
-    cv::Mat frame;
-    cap >> frame;
-    if (frame.empty()) return "";
-    cv::Mat bbox, rectifiedImage;
-    std::string data = qrDecoder.detectAndDecode(frame, bbox, rectifiedImage);
-    return data;
+    // std::printf("Detecting QR code for WiFi\n");
+    // cv::Mat frame;
+    // cap >> frame;
+    // if (frame.empty()) return "";
+    // cv::Mat bbox, rectifiedImage;
+    // std::string data = qrDecoder.detectAndDecode(frame, bbox, rectifiedImage);
+    // return data;
+    return "";
 }
 
 // Open the default camera and warm it up.
@@ -366,12 +369,13 @@ void loop() {
             noChangeCount++;
             if (noChangeCount == NO_CHANGE_FRAME_LIMIT) {
                 std::cout << "No significant change\n" << std::endl;
-                if (img.data == nullptr) {
-                    printf("img.data is nullptr\n");
-                    cap.release();
-                    return;
-                }
-                VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(img.data);
+                // if (img.data == nullptr) {
+                //     printf("img.data is nullptr\n");
+                //     cap.release();
+                //     return;
+                // }
+                //VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(img.data);
+                VIDEO_FRAME_INFO_S *frame_ptr = (VIDEO_FRAME_INFO_S *)cap.image_ptr;
                 if (frame_ptr == nullptr) {
                     printf("frame_ptr is nullptr\n");
                     cap.release();
@@ -381,14 +385,19 @@ void loop() {
                 cvtdl_object_t obj_meta = {0};
                 CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
                 if (obj_meta.size > 0) {
-                    printf("has detection!\n");
+                    for (uint32_t i = 0; i < obj_meta.size; i++) {
+                        // cv::Rect r(static_cast<int>(obj_meta.info[i].bbox.x1),
+                        //            static_cast<int>(obj_meta.info[i].bbox.y1),
+                        //            static_cast<int>(obj_meta.info[i].bbox.x2 - obj_meta.info[i].bbox.x1),
+                        //            static_cast<int>(obj_meta.info[i].bbox.y2 - obj_meta.info[i].bbox.y1));
+                        printf("detected class %d!!!\n", obj_meta.info[i].classes);
+                    }
                     sendImage();
                 }
                 else {
                     printf("no detection!\n");
                 }
             } else if (noChangeCount > NO_CHANGE_FRAME_LIMIT) {
-                //printf("no chaneg count > no_change_frame_limit\n");
                 continue;
             }
         } else {
@@ -403,22 +412,19 @@ void loop() {
 
 // Initialize YOLOv8 model and set parameters.
 bool initModel() {
-    //printf("init mmf\n");
-    // int vpssgrp_width = 640;
-    // int vpssgrp_height = 640;
     CVI_S32 ret = CVI_TDL_CreateHandle(&tdl_handle);
     if (ret != CVI_SUCCESS) {
         printf("Create tdl handle failed with %#x!\n", ret);
         return false;
     }
     // setup preprocess
+    // will cause 2 enter CVI_TDL_Get_YOLO_Preparam... in log
     // YoloPreParam preprocess_cfg = CVI_TDL_Get_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
     // for (int i = 0; i < 3; i++) {
     //     preprocess_cfg.factor[i] = 0.0039216;
     //     preprocess_cfg.mean[i] = 0;
     // }
     // preprocess_cfg.format = PIXEL_FORMAT_RGB_888_PLANAR;
-    // //printf("setup yolov8 param \n");
     // ret = CVI_TDL_Set_YOLO_Preparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, preprocess_cfg);
     // if (ret != CVI_SUCCESS) {
     //     printf("Can not set yolov8 preprocess parameters %#x\n", ret);
@@ -445,40 +451,9 @@ bool initModel() {
     return true;
 }
 
-// Perform object detection on the image using YOLOv8.
-// Returns true if one or more objects are detected.
-bool detect(cv::Mat &image) {
-    printf("Performing detection...\n");
-    if (image.data == nullptr) {
-        cap.release();
-        printf("image.dat is null\n");
-        return false;
-    }
-    VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image.data);
-    if (frame_ptr == nullptr) {
-        cap.release();
-        printf("frame_ptr is NULL\n");
-        return false;
-    }
-    cvtdl_object_t obj_meta = {0};
-    CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
-    // Draw bounding boxes on the image.
-    // for (uint32_t i = 0; i < obj_meta.size; i++) {
-    //     cv::Rect r(static_cast<int>(obj_meta.info[i].bbox.x1),
-    //                static_cast<int>(obj_meta.info[i].bbox.y1),
-    //                static_cast<int>(obj_meta.info[i].bbox.x2 - obj_meta.info[i].bbox.x1),
-    //                static_cast<int>(obj_meta.info[i].bbox.y2 - obj_meta.info[i].bbox.y1));
-    //     if (obj_meta.info[i].classes == 0)
-    //         cv::rectangle(image, r, BLUE_MAT, 1, 8, 0);
-    //     else if (obj_meta.info[i].classes == 1)
-    //         cv::rectangle(image, r, RED_MAT, 1, 8, 0);
-    // }
-    return (obj_meta.size > 0);
-}
-
 // Upload an image by saving, encoding to JPEG, and sending via HTTP POST.
 void sendImage() {
-    // std::cout << "Sending image to remote" << std::endl;
+    std::cout << "Sending image to remote" << std::endl;
     // if (!setCameraResolution(true)) {
     //     return;
     // }
@@ -554,7 +529,7 @@ void testDetect() {
         printf("Init sys failed with %#x!\n", ret);
         return;
     }
-    if (!initModel()) {
+     if (!initModel()) {
         cleanUp();
         return;
     }
@@ -566,9 +541,14 @@ void testDetect() {
         return;
     }
     printf("converting mat to frame_ptr\n");
+    if (image.data == nullptr) {
+        printf("image.data is nullptr\n");
+        return;
+    }
     VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image.data);
-    if(frame_ptr == NULL) {
-        std::printf("failed to get frame_ptr\n");
+    //VIDEO_FRAME_INFO_S *frame_ptr = (VIDEO_FRAME_INFO_S *)cap.image_ptr;
+    if(frame_ptr == nullptr) {
+        std::printf("frame_ptr is nullptr\n");
         return;
     }
     cvtdl_object_t obj_meta = {0};
@@ -597,19 +577,58 @@ void testDetect() {
    // return (obj_meta.size > 0);
 }
 
+void testCamera() {
+    openCamera();
+    if (!initModel()) {
+        cleanUp();
+        return;
+    }
+    while (!interrupted) {
+        cv::Mat img;
+        cap >> img;
+        if (img.empty()) {
+            printf("img is empty\n");
+            continue;
+        }
+        VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(img.data);
+        if (frame_ptr == nullptr) {
+            printf("frame_ptr is nullptr\n");
+            cap.release();
+            return;
+        }
+        printf("start detecting...\n");
+        cvtdl_object_t obj_meta = {0};
+        CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
+        if (obj_meta.size > 0) {
+            printf("has detection!\n");
+            sendImage();
+        }
+        else {
+            printf("no detection!\n");
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+    }
+    cap.release();
+}
+
+
 int main() {
     // Set up signal handler.
     signal(SIGINT, interruptHandler);
-    //testDetect();
-    //Read WiFi credentials and remote base URL.
-    setWifiCredentials();
-    // If no SSID is set, scan QR code.
-    getWifiQR();
-    // Connect to WiFi and remote server.
-    connectToWifi();
-    // Connect to device using wifi
-    connectToDevice();
-    // Start the main processing loop.
-    loop();
+    #ifdef NO_WIFI
+        testCamera();
+    #else 
+        //testDetect();
+        //Read WiFi credentials and remote base URL.
+        setWifiCredentials();
+        // If no SSID is set, scan QR code.
+        getWifiQR();
+        // Connect to WiFi and remote server.
+        connectToWifi();
+        // Connect to device using wifi
+        connectToDevice();
+        // Start the main processing loop.
+        loop();
+    #endif
     return 0;
 }
