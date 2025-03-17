@@ -31,6 +31,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
+#include <cstdio>
+#include <regex>
 
 // custom includes
 #include "core/cvi_tdl_types_mem_internal.h"
@@ -57,15 +59,15 @@
 //#define NO_WIFI
 
 // Global variables
-std::string wifiSSID = "";
-std::string wifiPassword = "";
+// std::string wifiSSID = "";
+// std::string wifiPassword = "";
 std::string remoteBaseUrl = "";
 std::string myIp = "";
 cv::VideoCapture cap;
 cv::QRCodeDetector qrDecoder;
 cvitdl_handle_t tdl_handle = NULL;
 
-// Use sig_atomic_t for safe signal handling
+//Use sig_atomic_t for safe signal handling
 volatile sig_atomic_t interrupted = 0;
 
 struct HttpResponse {
@@ -73,18 +75,21 @@ struct HttpResponse {
     long statusCode;        // HTTP status code
 };
 
-// Forward declarations
+//Forward declarations
+//connect to wifi and remote
+void connect();
 std::string getIPAddress();
-void sendImage();
-bool runCommand(const std::string& command);
-HttpResponse http_get(const std::string& url);
-void setWifiCredentialFromText(const std::string& text);
+HttpResponse getHttp(const std::string& url);
 std::string detectQR();
 void openCamera();
-void cleanUp();
+bool connectToRemote();
+bool runCommand(const std::string& command);
+//main logic
 bool initModel();
-void connectToDevice();
+void sendImage();
 void loop();
+//others
+void cleanUp();
 void testDetect();
 void testCamera();
 
@@ -92,6 +97,7 @@ void testCamera();
 void interruptHandler(int signum) {
     std::printf("Signal: %d\n", signum);
     interrupted = 1;
+    cleanUp();
 }
 
 // Clean up resources before exit.
@@ -107,67 +113,96 @@ void cleanUp() {
     exit(0);
 }
 
-// Read WiFi config from file and set credentials.
-void setWifiCredentials() {
+// Scan for a QR code and set WiFi credentials.
+void connect() {
+    //get wifi_config file
+    std::string ssid;
+    std::string password;
+    bool isConnected = false;
     std::ifstream file(WIFI_CONFIG_FILE_PATH);
-    if (!file) {
-        std::printf("no wifi_config file\n");
-        return;
-    }
     //read file
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    std::string text = buffer.str();
-    file.close();
-    setWifiCredentialFromText(text);
-}
-
-// Parse WiFi credentials from text and update the config file.
-void setWifiCredentialFromText(const std::string& text) {
-    std::stringstream ss(text);
-    std::string line;
-    while (!interrupted && std::getline(ss, line)) {
-        size_t pos = line.find(':');
-        if (pos != std::string::npos) {
-            std::string key = line.substr(0, pos);
-            std::string value = line.substr(pos + 1);
-            if (key == "ssid") {
-                wifiSSID = value;
-            } else if (key == "password") {
-                wifiPassword = value;
-            } else if (key == "remoteBaseUrl") {
-                remoteBaseUrl = value;
+    if(file) {
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        std::string text = buffer.str();
+        file.close();
+        std::stringstream ss(text);
+        std::string line;
+        while (!interrupted && std::getline(ss, line)) {
+            size_t pos = line.find(':');
+            if (pos != std::string::npos) {
+                std::string key = line.substr(0, pos);
+                std::string value = line.substr(pos + 1);
+                if (key == "remoteBaseUrl") {
+                    remoteBaseUrl = value;
+                }
+                else if (key == "ssid") {
+                    ssid = value;
+                }
+                else if(key == "password") {
+                    password = value;
+                }
             }
         }
+        //try to connect
+        isConnected = connectToWifi(ssid, password);
+        bool canConnectToRemote = connectToRemote();
+        //if cannot connect to remote, wifi info maybe wront, just reset
+        if (!canConnectToRemote) {
+            isConnected = false;
+        }
     }
-    //std::cout << "SSID: " << wifiSSID << " PASSWORD: " << wifiPassword << "REMOTEBASEURL: " << remoteBaseUrl << std::endl;
-    std::string wifiConfig = "ssid:" + wifiSSID + "\npassword:" + wifiPassword + "\nremoteBaseUrl:" + remoteBaseUrl;
-    //create new file if doestn't exist
-    std::ofstream file(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
-    if (file.is_open()) {
-        file << wifiConfig;
-        file.close();
+    //if has ip, it's connected
+    //if not connected, scan for qr
+    if (!isConnected) {
+        openCamera();
+        while (!interrupted) {
+            std::string qrContent = detectQR(); 
+            if (qrContent.empty()) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                continue;
+            }
+            std::cout << "QR Content: " << qrContent << std::endl;
+            std::stringstream ss(qrContent);
+            std::string line;
+            while (std::getline(ss, line)) {
+                size_t pos = line.find(':');
+                if (pos != std::string::npos) {
+                    std::string key = line.substr(0, pos);
+                    std::string value = line.substr(pos + 1);
+                    if (key == "ssid") {
+                        ssid = value;
+                    } else if (key == "password") {
+                        password = value;
+                    } else if (key == "remoteBaseUrl") {
+                        remoteBaseUrl = value;
+                    }
+                }
+            }
+            if(ssid.empty() || password.empty() || remoteBaseUrl.empty()) {
+                continue;
+            }
+            bool isConnected = connectToWifi(ssid, password);
+            if(!isConnected) {
+                continue;
+            }
+            //now wifi is connected, connect to remote
+            bool canConnectRemote = connectToRemote();
+            if (!canConnectRemote) {
+                continue;
+            }
+            break;
+        }
+    }
+    //now everything is up, save the file
+    std::string wifiConfig = "ssid:" + ssid + "\npassword:" + password + "\nremoteBaseUrl:" + remoteBaseUrl;
+    std::ofstream newFile(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
+    if (newFile.is_open()) {
+        newFile << wifiConfig;
+        newFile.close();
     } else {
         std::cerr << "Unable to open file: " << WIFI_CONFIG_FILE_PATH << std::endl;
-    }
-}
-
-// Scan for a QR code and set WiFi credentials.
-void getWifiQR() {
-    if (wifiSSID.empty()) {
-        openCamera();
-    }
-    while (wifiSSID.empty() && !interrupted) {
-        std::string content = detectQR();
-        if (content.empty()) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            continue;
-        }
-        std::cout << "QR Content: " << content << std::endl;
-        setWifiCredentialFromText(content);
-    }
-    if (interrupted) {
-        cleanUp();
+        //no need to continue scan or return false
     }
 }
 
@@ -223,24 +258,23 @@ bool setCameraResolution(bool max) {
 }
 
 // Connect to WiFi using system commands.
-void connectToWifi() {
-    //since connecting to wifi requires writing data to /etc/wpa_supplicant.conf, at this point maybe it's already connected to wifi, check for that first
-    if(getIPAddress() != "") {
-        std::cout << "Connected to " << wifiSSID << " with IP " << myIp << std::endl;
-        return;
-    }
-    std::cout << "Connecting to " << wifiSSID << std::endl;
-    std::string configCmd = "echo 'network={\n    ssid=\"" + wifiSSID + "\"\n    psk=\"" + wifiPassword + "\"\n}' > /etc/wpa_supplicant.conf";
-    if (!runCommand(configCmd) ||
-        !runCommand("ifconfig wlan0 up") ||
-        !runCommand("wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant.conf") ||
-        !runCommand("udhcpc -i wlan0")) {
-        wifiSSID = "";
-        getWifiQR();
-        return;
-    }
+bool connectToWifi(std::string ssid, std::string password) {
+    std::cout << "Connecting to " << ssid << std::endl;
+    std::string cmd = "wpa_cli -i wlan0 add_network";
+    int network_id = std::system(cmd.c_str()); // Returns network ID (e.g., 0)
+    cmd = "wpa_cli -i wlan0 set_network 0 ssid '\"\"" + ssid + "\"\"'";
+    std::system(cmd.c_str());
+    cmd = "wpa_cli -i wlan0 set_network 0 psk '\"\"" + password + "\"\"'";
+    std::system(cmd.c_str());
+    cmd = "wpa_cli -i wlan0 enable_network 0";
+    std::system(cmd.c_str());
+    cmd = "wpa_cli -i wlan0 save_config"; // Persist configuration [[4]]
     myIp = getIPAddress();
-    std::cout << "Connected to " << wifiSSID << " with IP " << myIp << std::endl;
+    if (!myIp.empty()) {
+        std::cout << "Connected to " << ssid << " with IP " << myIp << std::endl;
+        return true;
+    }
+    return false;
 }
 
 // Get the IP address of interface "wlan0".
@@ -258,21 +292,16 @@ std::string getIPAddress() {
 }
 
 // Connect to the remote server by pinging a URL.
-void connectToDevice() {
-    while (!interrupted) {
-        std::string url = remoteBaseUrl + "/ping?ip=" + myIp;
-        std::cout << "Connecting to remote URL " << url << std::endl;
-        HttpResponse response = http_get(url);
-        if (response.statusCode == 200) {
-            std::cout << "Successfully connected to remote" << std::endl;
-            break;
-        } else {
-            std::cerr << "Failed to connect to remote" << std::endl;
-            if (getIPAddress().empty()) {
-                connectToWifi();
-            }
-            std::this_thread::sleep_for(std::chrono::seconds(3));
-        }
+bool connectToRemote() {
+    std::string url = remoteBaseUrl + "/ping?ip=" + myIp;
+    std::cout << "Connecting to remote URL " << url << std::endl;
+    HttpResponse response = getHttp(url);
+    if (response.statusCode == 200) {
+        std::cout << "Successfully connected to remote" << std::endl;
+        return true;
+    } else {
+        std::cerr << "Failed to connect to remote" << std::endl;
+        return false;
     }
 }
 
@@ -294,7 +323,7 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
 }
 
 // Function to perform an HTTP GET request using libcurl
-HttpResponse http_get(const std::string& url) {
+HttpResponse getHttp(const std::string& url) {
     CURL* curl;
     CURLcode res;
     HttpResponse response;
@@ -620,21 +649,12 @@ void testCamera() {
 }
 
 int main() {
-    // Set up signal handler.
     signal(SIGINT, interruptHandler);
     #ifdef NO_WIFI
         testCamera();
     #else 
         //testDetect();
-        //Read WiFi credentials and remote base URL.
-        setWifiCredentials();
-        // If no SSID is set, scan QR code.
-        getWifiQR();
-        // Connect to WiFi and remote server.
-        connectToWifi();
-        // Connect to device using wifi
-        connectToDevice();
-        // Start the main processing loop.
+        connect();
         loop();
     #endif
     return 0;
