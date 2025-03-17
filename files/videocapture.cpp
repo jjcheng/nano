@@ -270,7 +270,7 @@ VideoCapture& VideoCapture::operator>>(Mat& image)
 
         d->cap_cvi.read_frame((unsigned char*)image.data);
 
-        image_ptr = d.getFrameInfo;
+        image_ptr = d.getFrameInfo();
     }
     else
 #endif
