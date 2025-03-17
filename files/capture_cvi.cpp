@@ -3786,6 +3786,8 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata)
 
         CVI_SYS_Munmap(mapped_ptr, length);
     }
+    // modified by JJ to assign stFrameInfo_bgr to image_ptr
+    d->setFrameData(&stFrameInfo_bgr);
 
 OUT:
 
@@ -3812,7 +3814,7 @@ OUT:
 
         b_vi_frame_got = 0;
     }
-
+    
     return ret_val;
 }
 
