@@ -2653,6 +2653,8 @@ public:
 
     int close();
 
+    VIDEO_FRAME_INFO_S* getFrameInfo();
+
 public:
     int crop_width;
     int crop_height;
@@ -2708,7 +2710,7 @@ public:
     // VPSS_GRP VpssGrp = CVI_VPSS_GetAvailableGrp();
     VPSS_CHN VpssChn = VPSS_CHN0;
     VIDEO_FRAME_INFO_S stFrameInfo_bgr;
-    void * image_ptr;
+    VIDEO_FRAME_INFO_S* image_ptr;
 };
 
 capture_cvi_impl::capture_cvi_impl()
@@ -3788,7 +3790,8 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata)
     }
     // modified by JJ to assign stFrameInfo_bgr to image_ptr
     //d->setFrameData(&stFrameInfo_bgr);
-    image_ptr = static_cast<void*>(&stFrameInfo_bgr);
+    //image_ptr = static_cast<void*>(&stFrameInfo_bgr);
+    image_ptr = &stFrameInfo_bgr;
 
 OUT:
 
@@ -3817,6 +3820,10 @@ OUT:
     }
     
     return ret_val;
+}
+
+VIDEO_FRAME_INFO_S* capture_cvi_impl::getFrameInfo() {
+    return image_ptr;
 }
 
 int capture_cvi_impl::stop_streaming()
@@ -4178,6 +4185,7 @@ int capture_cvi_impl::close()
     return ret_val;
 }
 
+//interfaces
 bool capture_cvi::supported()
 {
     if (!sys.ready)
@@ -4243,6 +4251,11 @@ int capture_cvi::read_frame(unsigned char* bgrdata)
     return d->read_frame(bgrdata);
 }
 
+VIDEO_FRAME_INFO_S* capture_cvi::getFrameInfo() 
+{
+    return d->getFrameInfo();
+}
+
 int capture_cvi::stop_streaming()
 {
     return d->stop_streaming();
@@ -4253,4 +4266,4 @@ int capture_cvi::close()
     return d->close();
 }
 
-} // namespace cv
+} 

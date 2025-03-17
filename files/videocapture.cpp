@@ -270,7 +270,7 @@ VideoCapture& VideoCapture::operator>>(Mat& image)
 
         d->cap_cvi.read_frame((unsigned char*)image.data);
 
-        image_ptr = d->image_ptr;
+        image_ptr = d->cap_cvi->image_ptr;
     }
     else
 #endif
