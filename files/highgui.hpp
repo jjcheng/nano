@@ -90,10 +90,6 @@ public:
     bool set(int propId, double value);
 
     double get(int propId) const;
-    
-    // void setFrameData(VIDEO_FRAME_INFO_S* frame);
-
-    // VIDEO_FRAME_INFO_S* getFrameData() const;
 
     void * image_ptr;
 
