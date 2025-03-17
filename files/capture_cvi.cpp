@@ -2708,7 +2708,7 @@ public:
     // VPSS_GRP VpssGrp = CVI_VPSS_GetAvailableGrp();
     VPSS_CHN VpssChn = VPSS_CHN0;
     VIDEO_FRAME_INFO_S stFrameInfo_bgr;
-
+    void * image_ptr;
 };
 
 capture_cvi_impl::capture_cvi_impl()
@@ -3787,7 +3787,8 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata)
         CVI_SYS_Munmap(mapped_ptr, length);
     }
     // modified by JJ to assign stFrameInfo_bgr to image_ptr
-    d->setFrameData(&stFrameInfo_bgr);
+    //d->setFrameData(&stFrameInfo_bgr);
+    image_ptr = static_cast<void*>(&stFrameInfo_bgr);
 
 OUT:
 

@@ -1,7 +1,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-//#include <opencv2/objdetect.hpp>
+#include <opencv2/objdetect.hpp>
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -62,7 +62,7 @@ std::string wifiPassword = "";
 std::string remoteBaseUrl = "";
 std::string myIp = "";
 cv::VideoCapture cap;
-//cv::QRCodeDetector qrDecoder;
+cv::QRCodeDetector qrDecoder;
 cvitdl_handle_t tdl_handle = NULL;
 
 // Use sig_atomic_t for safe signal handling
@@ -75,7 +75,6 @@ struct HttpResponse {
 
 // Forward declarations
 std::string getIPAddress();
-bool detect(cv::Mat &image);
 void sendImage();
 bool runCommand(const std::string& command);
 HttpResponse http_get(const std::string& url);
@@ -85,7 +84,6 @@ void openCamera();
 void cleanUp();
 bool initModel();
 void connectToDevice();
-bool checkIsConnectedToWifi();
 void loop();
 void testDetect();
 void testCamera();
@@ -142,7 +140,7 @@ void setWifiCredentialFromText(const std::string& text) {
             }
         }
     }
-    std::cout << "SSID: " << wifiSSID << " PASSWORD: " << wifiPassword << "REMOTEBASEURL: " << remoteBaseUrl << std::endl;
+    //std::cout << "SSID: " << wifiSSID << " PASSWORD: " << wifiPassword << "REMOTEBASEURL: " << remoteBaseUrl << std::endl;
     std::string wifiConfig = "ssid:" + wifiSSID + "\npassword:" + wifiPassword + "\nremoteBaseUrl:" + remoteBaseUrl;
     //create new file if doestn't exist
     std::ofstream file(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
@@ -175,14 +173,13 @@ void getWifiQR() {
 
 // Detect and decode a QR code from the current camera frame.
 std::string detectQR() {
-    // std::printf("Detecting QR code for WiFi\n");
-    // cv::Mat frame;
-    // cap >> frame;
-    // if (frame.empty()) return "";
-    // cv::Mat bbox, rectifiedImage;
-    // std::string data = qrDecoder.detectAndDecode(frame, bbox, rectifiedImage);
-    // return data;
-    return "";
+    std::printf("Detecting QR code for WiFi\n");
+    cv::Mat frame;
+    cap >> frame;
+    if (frame.empty()) return "";
+    cv::Mat bbox, rectifiedImage;
+    std::string data = qrDecoder.detectAndDecode(frame, bbox, rectifiedImage);
+    return data;
 }
 
 // Open the default camera and warm it up.
@@ -220,8 +217,9 @@ bool setCameraResolution(bool max) {
 // Connect to WiFi using system commands.
 void connectToWifi() {
     //since connecting to wifi requires writing data to /etc/wpa_supplicant.conf, at this point maybe it's already connected to wifi, check for that first
-    if(checkIsConnectedToWifi()) {
+    if(getIPAddress() != "") {
         std::cout << "Connected to " << wifiSSID << " with IP " << myIp << std::endl;
+        return;
     }
     std::cout << "Connecting to " << wifiSSID << std::endl;
     std::string configCmd = "echo 'network={\n    ssid=\"" + wifiSSID + "\"\n    psk=\"" + wifiPassword + "\"\n}' > /etc/wpa_supplicant.conf";
@@ -235,26 +233,6 @@ void connectToWifi() {
     }
     myIp = getIPAddress();
     std::cout << "Connected to " << wifiSSID << " with IP " << myIp << std::endl;
-}
-
-bool checkIsConnectedToWifi() {
-    // std::string cmd = "ip addr show " + INTERFACE_NAME;
-    // FILE* pipe = popen(cmd.c_str(), "r");
-    // if (!pipe) {
-    //     std::cerr << "Failed to run command: " << cmd << "\n";
-    //     return false;
-    // }
-    // char buffer[128];
-    // bool connected = false;
-    // while (fgets(buffer, sizeof(buffer), pipe)) {
-    //     if (strstr(buffer, "inet ")) { // found an IP address
-    //         connected = true;
-    //         break;
-    //     }
-    // }
-    // pclose(pipe);
-    // return connected;
-    return getIPAddress() != "";
 }
 
 // Get the IP address of interface "wlan0".
@@ -370,8 +348,8 @@ void loop() {
             if (noChangeCount == NO_CHANGE_FRAME_LIMIT) {
                 std::cout << "No significant change\n" << std::endl;
                 //VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(img.data);
-                //VIDEO_FRAME_INFO_S *frame_ptr = (VIDEO_FRAME_INFO_S *)cap.image_ptr;
-                VIDEO_FRAME_INFO_S *frame_ptr = cap.getFrameData();
+                VIDEO_FRAME_INFO_S *frame_ptr = (VIDEO_FRAME_INFO_S *)cap.image_ptr;
+                //VIDEO_FRAME_INFO_S *frame_ptr = cap.getFrameData();
                 if (frame_ptr == nullptr) {
                     printf("frame_ptr is nullptr\n");
                     cap.release();
@@ -429,16 +407,13 @@ bool initModel() {
     // setup yolo algorithm preprocess
     YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
     yolov8_param.cls = MODEL_CLASS_CNT;
-    //printf("setup yolov8 algorithm param \n");
     ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
     if (ret != CVI_SUCCESS) {
         printf("Can not set yolov8 algorithm parameters %#x\n", ret);
         return false;
     }
-    // set theshold
     CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_THRESH);
     CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_NMS_THRESH);
-    //printf("yolov8 algorithm parameters setup success!\n");
     ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_FILE_PATH);
     if (ret != CVI_SUCCESS) {
         printf("open model failed with %#x!\n", ret);
@@ -450,29 +425,29 @@ bool initModel() {
 // Upload an image by saving, encoding to JPEG, and sending via HTTP POST.
 void sendImage() {
     std::cout << "Sending image to remote" << std::endl;
-    // if (!setCameraResolution(true)) {
-    //     return;
-    // }
-    // cv::Mat frame;
-    // cap >> frame;
-    // if (frame.empty()) {
-    //     std::cerr << "Captured empty frame!" << std::endl;
-    //     return;
-    // }
-    // if (!cv::imwrite(SAVE_IMAGE_PATH, frame)) {
-    //     std::cerr << "Failed to save image to path" << std::endl;
-    //     return;
-    // }
-    std::vector<uchar> imgData;
-    std::string imagePath = "files/test.jpg";
-    cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
-    if (!cv::imencode(".jpg", image, imgData)) {
-        std::cerr << "Error: Could not encode image!" << std::endl;
+    if (!setCameraResolution(true)) {
         return;
     }
+    cv::Mat frame;
+    cap >> frame;
+    if (frame.empty()) {
+        std::cerr << "Captured empty frame!" << std::endl;
+        return;
+    }
+    if (!cv::imwrite(SAVE_IMAGE_PATH, frame)) {
+        std::cerr << "Failed to save image to path" << std::endl;
+        return;
+    }
+    // std::vector<uchar> imgData;
+    // std::string imagePath = "files/test.jpg";
+    // cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
+    // if (!cv::imencode(".jpg", image, imgData)) {
+    //     std::cerr << "Error: Could not encode image!" << std::endl;
+    //     return;
+    // }
     // Convert the OpenCV Mat image to a buffer (binary data)
     std::vector<uchar> buffer;
-    if (!cv::imencode(".jpg", image, buffer)) {  // Encode the image as JPEG <button class="citation-flag" data-index="8">
+    if (!cv::imencode(".jpg", frame, buffer)) {  // Encode the image as JPEG <button class="citation-flag" data-index="8">
         std::cerr << "Failed to encode the image." << std::endl;
         return;
     }
@@ -481,26 +456,15 @@ void sendImage() {
     // Initialize libcurl
     curl = curl_easy_init();
     if (curl) {
-        // Set the URL
         std::string url = remoteBaseUrl + "/upload";
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-
-        // Set the HTTP method to POST
         curl_easy_setopt(curl, CURLOPT_POST, 1L);
-
-        // Set the raw binary data as the POST body
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, buffer.data());
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, buffer.size());
-
-        // Set the Content-Type header to application/octet-stream
         struct curl_slist* headers = nullptr;
         headers = curl_slist_append(headers, "Content-Type: application/octet-stream");
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
-        // Perform the request
         res = curl_easy_perform(curl);
-
-        // Check for errors
         if (res != CURLE_OK) {
             std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
         } else {
@@ -508,12 +472,10 @@ void sendImage() {
             curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
             std::cout << "HTTP Status Code: " << httpCode << std::endl;
         }
-
-        // Cleanup
         curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
     } else {
-        std::cerr << "Failed to initialize libcurl." << std::endl;
+        std::cerr << "Failed to initialize libcurl" << std::endl;
         return;
     }
 }
@@ -606,7 +568,6 @@ void testCamera() {
     }
     cap.release();
 }
-
 
 int main() {
     // Set up signal handler.

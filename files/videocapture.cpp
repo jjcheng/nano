@@ -45,7 +45,8 @@ public:
     int width;
     int height;
     float fps;
-
+    //added by jj
+    void * image_ptr;
 #if CV_WITH_AW
     capture_v4l2_aw_isp cap_v4l2_aw_isp;
 #endif
@@ -268,6 +269,8 @@ VideoCapture& VideoCapture::operator>>(Mat& image)
         image.create(d->height, d->width, CV_8UC3);
 
         d->cap_cvi.read_frame((unsigned char*)image.data);
+
+        image_ptr = d->image_ptr;
     }
     else
 #endif
@@ -330,15 +333,12 @@ double VideoCapture::get(int propId) const
     return 0.0;
 }
 
-//added by jj
-void * image_ptr;
+// void setFrameData(VIDEO_FRAME_INFO_S* frame) {
+//     image_ptr = static_cast<void*>(frame);
+// }
 
-void setFrameData(VIDEO_FRAME_INFO_S* frame) {
-    image_ptr = static_cast<void*>(frame);
+// VIDEO_FRAME_INFO_S* getFrameData() const {
+//     return static_cast<VIDEO_FRAME_INFO_S*>(image_ptr);
+// }
+
 }
-
-VIDEO_FRAME_INFO_S* getFrameData() const {
-    return static_cast<VIDEO_FRAME_INFO_S*>(image_ptr);
-}
-
-} // namespace cv

@@ -91,14 +91,15 @@ public:
 
     double get(int propId) const;
     
-    void setFrameData(VIDEO_FRAME_INFO_S* frame);
+    // void setFrameData(VIDEO_FRAME_INFO_S* frame);
 
-    VIDEO_FRAME_INFO_S* getFrameData() const;
+    // VIDEO_FRAME_INFO_S* getFrameData() const;
 
-private:
+    void * image_ptr;
+
+//private:
     VideoCaptureImpl* const d;
     
-    void * image_ptr;
 };
 
 class VideoWriterImpl;
