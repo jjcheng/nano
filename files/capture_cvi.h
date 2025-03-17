@@ -44,7 +44,7 @@ public:
 
     int close();
 
-    void * capture_cvi::getFrameInfo();
+    void * getFrameInfo();
 
 private:
     capture_cvi_impl* const d;
