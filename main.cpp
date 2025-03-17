@@ -52,8 +52,8 @@
 #define MODEL_CLASS_CNT 3 //underline, highlight, pen
 #define MODEL_THRESH 0.1
 #define MODEL_NMS_THRESH 0.1
-#define INPUT_WIDTH 640
-#define INPUT_HEIGHT 640
+#define INPUT_WIDTH 320
+#define INPUT_HEIGHT 320
 //#define NO_WIFI
 
 // Global variables
@@ -204,12 +204,20 @@ void openCamera() {
 
 // Set camera resolution.
 bool setCameraResolution(bool max) {
+    int width = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
+    int height = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
     if (max) {
+        if (width != 2560 || height != 1440) {
+            return false;
+        }
         cap.set(cv::CAP_PROP_FRAME_WIDTH, 2560);
         cap.set(cv::CAP_PROP_FRAME_HEIGHT, 1440);
     } else {
-        cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
-        cap.set(cv::CAP_PROP_FRAME_HEIGHT, 640);
+        if (width != INPUT_WIDTH || height != INPUT_HEIGHT) {
+            return false;
+        }
+        cap.set(cv::CAP_PROP_FRAME_WIDTH, INPUT_HEIGHT);
+        cap.set(cv::CAP_PROP_FRAME_HEIGHT, INPUT_HEIGHT);
     }
     return true;
 }
@@ -434,50 +442,92 @@ void sendImage() {
         std::cerr << "Captured empty frame!" << std::endl;
         return;
     }
-    if (!cv::imwrite(SAVE_IMAGE_PATH, frame)) {
-        std::cerr << "Failed to save image to path" << std::endl;
-        return;
-    }
-    // std::vector<uchar> imgData;
-    // std::string imagePath = "files/test.jpg";
-    // cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
-    // if (!cv::imencode(".jpg", image, imgData)) {
-    //     std::cerr << "Error: Could not encode image!" << std::endl;
-    //     return;
-    // }
-    // Convert the OpenCV Mat image to a buffer (binary data)
+    // Encode image to buffer
     std::vector<uchar> buffer;
-    if (!cv::imencode(".jpg", frame, buffer)) {  // Encode the image as JPEG <button class="citation-flag" data-index="8">
-        std::cerr << "Failed to encode the image." << std::endl;
+    std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, 90}; // Adjust format and quality as needed
+    if (!cv::imencode(".jpg", frame, buffer, params)) {
+        std::cerr << "Failed to encode image." << std::endl;
         return;
     }
-    CURL* curl;
-    CURLcode res;
-    // Initialize libcurl
-    curl = curl_easy_init();
-    if (curl) {
-        std::string url = remoteBaseUrl + "/upload";
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_POST, 1L);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, buffer.data());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, buffer.size());
-        struct curl_slist* headers = nullptr;
-        headers = curl_slist_append(headers, "Content-Type: application/octet-stream");
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-        res = curl_easy_perform(curl);
-        if (res != CURLE_OK) {
-            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
-        } else {
-            long httpCode = 0;
-            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
-            std::cout << "HTTP Status Code: " << httpCode << std::endl;
-        }
-        curl_slist_free_all(headers);
-        curl_easy_cleanup(curl);
-    } else {
+    CURL* curl = curl_easy_init();
+    if (!curl) {
         std::cerr << "Failed to initialize libcurl" << std::endl;
         return;
     }
+    struct curl_slist* headers = nullptr;
+    headers = curl_slist_append(headers, "Content-Type: application/octet-stream");
+    std::string url = remoteBaseUrl + "/upload";
+    CURLcode res;
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, buffer.data());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, buffer.size());
+    res = curl_easy_perform(curl);
+     if (res != CURLE_OK) {
+        std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+    } else {
+        long httpCode = 0;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+        std::cout << "HTTP Status Code: " << httpCode << std::endl;
+    }
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+
+    // std::cout << "Sending image to remote" << std::endl;
+    // if (!setCameraResolution(true)) {
+    //     return;
+    // }
+    // cv::Mat frame;
+    // cap >> frame;
+    // if (frame.empty()) {
+    //     std::cerr << "Captured empty frame!" << std::endl;
+    //     return;
+    // }
+    // if (!cv::imwrite(SAVE_IMAGE_PATH, frame)) {
+    //     std::cerr << "Failed to save image to path" << std::endl;
+    //     return;
+    // }
+    // // std::vector<uchar> imgData;
+    // // std::string imagePath = "files/test.jpg";
+    // // cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
+    // // if (!cv::imencode(".jpg", image, imgData)) {
+    // //     std::cerr << "Error: Could not encode image!" << std::endl;
+    // //     return;
+    // // }
+    // // Convert the OpenCV Mat image to a buffer (binary data)
+    // std::vector<uchar> buffer;
+    // if (!cv::imencode(".jpg", frame, buffer)) {  // Encode the image as JPEG <button class="citation-flag" data-index="8">
+    //     std::cerr << "Failed to encode the image." << std::endl;
+    //     return;
+    // }
+    // CURL* curl;
+    // CURLcode res;
+    // // Initialize libcurl
+    // curl = curl_easy_init();
+    // if (curl) {
+    //     std::string url = remoteBaseUrl + "/upload";
+    //     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    //     curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    //     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, buffer.data());
+    //     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, buffer.size());
+    //     struct curl_slist* headers = nullptr;
+    //     headers = curl_slist_append(headers, "Content-Type: application/octet-stream");
+    //     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    //     res = curl_easy_perform(curl);
+    //     if (res != CURLE_OK) {
+    //         std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+    //     } else {
+    //         long httpCode = 0;
+    //         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+    //         std::cout << "HTTP Status Code: " << httpCode << std::endl;
+    //     }
+    //     curl_slist_free_all(headers);
+    //     curl_easy_cleanup(curl);
+    // } else {
+    //     std::cerr << "Failed to initialize libcurl" << std::endl;
+    //     return;
+    // }
 }
 
 void testDetect() {
