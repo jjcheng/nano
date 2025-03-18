@@ -270,7 +270,7 @@ VideoCapture& VideoCapture::operator>>(Mat& image)
 
         d->cap_cvi.read_frame((unsigned char*)image.data);
 
-        image_ptr = d->image_ptr;
+        //image_ptr = d->image_ptr;
     }
     else
 #endif
@@ -333,8 +333,10 @@ double VideoCapture::get(int propId) const
     return 0.0;
 }
 
-// void * getFrameInfo() {
-//     return d->image
-// }
+//added by jj
+void * VideoCapture::getFrameInfo() 
+{
+    return d->image_ptr;
+}
 
 }

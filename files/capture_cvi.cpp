@@ -2653,8 +2653,6 @@ public:
 
     int close();
 
-    //void * getFrameInfo();
-
 public:
     int crop_width;
     int crop_height;
@@ -2710,6 +2708,8 @@ public:
     // VPSS_GRP VpssGrp = CVI_VPSS_GetAvailableGrp();
     VPSS_CHN VpssChn = VPSS_CHN0;
     VIDEO_FRAME_INFO_S stFrameInfo_bgr;
+
+    //added by jj
     void * image_ptr;
 };
 
@@ -3788,9 +3788,7 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata)
 
         CVI_SYS_Munmap(mapped_ptr, length);
     }
-    // modified by JJ to assign stFrameInfo_bgr to image_ptr
-    //d->setFrameData(&stFrameInfo_bgr);
-    //image_ptr = static_cast<void*>(&stFrameInfo_bgr);
+    //added by jj
     image_ptr = &stFrameInfo_bgr;
 
 OUT:

@@ -44,7 +44,8 @@ public:
 
     int close();
 
-    //void * getFrameInfo();
+    //added by jj
+    void * image_ptr;
 
 private:
     capture_cvi_impl* const d;
