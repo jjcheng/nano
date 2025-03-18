@@ -78,6 +78,7 @@ struct HttpResponse {
 //Forward declarations
 //connect to wifi and remote
 void connect();
+bool connectToWifi(std::string ssid, std::string password);
 std::string getIPAddress();
 HttpResponse getHttp(const std::string& url);
 std::string detectQR();
@@ -261,7 +262,7 @@ bool setCameraResolution(bool max) {
 bool connectToWifi(std::string ssid, std::string password) {
     std::cout << "Connecting to " << ssid << std::endl;
     std::string cmd = "wpa_cli -i wlan0 add_network";
-    int network_id = std::system(cmd.c_str()); // Returns network ID (e.g., 0)
+    //int network_id = std::system(cmd.c_str()); // Returns network ID (e.g., 0)
     cmd = "wpa_cli -i wlan0 set_network 0 ssid '\"\"" + ssid + "\"\"'";
     std::system(cmd.c_str());
     cmd = "wpa_cli -i wlan0 set_network 0 psk '\"\"" + password + "\"\"'";
@@ -384,9 +385,7 @@ void loop() {
             noChangeCount++;
             if (noChangeCount == NO_CHANGE_FRAME_LIMIT) {
                 std::cout << "No significant change\n" << std::endl;
-                //VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(img.data);
                 VIDEO_FRAME_INFO_S *frame_ptr = (VIDEO_FRAME_INFO_S *)cap.getFrameInfo();
-                //VIDEO_FRAME_INFO_S *frame_ptr = cap.getFrameData();
                 if (frame_ptr == nullptr) {
                     printf("frame_ptr is nullptr\n");
                     cap.release();

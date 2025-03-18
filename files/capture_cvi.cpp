@@ -3820,10 +3820,6 @@ OUT:
     return ret_val;
 }
 
-// void * capture_cvi_impl::getFrameInfo() {
-//     return image_ptr;
-// }
-
 int capture_cvi_impl::stop_streaming()
 {
     int ret_val = 0;
@@ -4248,11 +4244,6 @@ int capture_cvi::read_frame(unsigned char* bgrdata)
 {
     return d->read_frame(bgrdata);
 }
-
-// void * capture_cvi::getFrameInfo() 
-// {
-//     return d->getFrameInfo();
-// }
 
 int capture_cvi::stop_streaming()
 {
