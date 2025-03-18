@@ -385,7 +385,7 @@ void loop() {
             if (noChangeCount == NO_CHANGE_FRAME_LIMIT) {
                 std::cout << "No significant change\n" << std::endl;
                 //VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(img.data);
-                VIDEO_FRAME_INFO_S *frame_ptr = (VIDEO_FRAME_INFO_S *)cap.image_ptr;
+                VIDEO_FRAME_INFO_S *frame_ptr = (VIDEO_FRAME_INFO_S *)cap.getFrameInfo();
                 //VIDEO_FRAME_INFO_S *frame_ptr = cap.getFrameData();
                 if (frame_ptr == nullptr) {
                     printf("frame_ptr is nullptr\n");
