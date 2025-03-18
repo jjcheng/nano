@@ -45,7 +45,7 @@ public:
     int close();
 
     //added by jj
-    void * image_ptr;
+    void* image_ptr;
 
 private:
     capture_cvi_impl* const d;

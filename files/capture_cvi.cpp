@@ -2710,7 +2710,7 @@ public:
     VIDEO_FRAME_INFO_S stFrameInfo_bgr;
 
     //added by jj
-    void * image_ptr;
+    void* image_ptr;
 };
 
 capture_cvi_impl::capture_cvi_impl()
@@ -3790,6 +3790,7 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata)
     }
     //added by jj
     image_ptr = &stFrameInfo_bgr;
+    printf("pointer address of image_ptr in capture_cvi.cpp: %p\n", (void*)image_ptr);
 
 OUT:
 

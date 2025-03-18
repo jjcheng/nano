@@ -46,7 +46,7 @@ public:
     int height;
     float fps;
     //added by jj
-    void * image_ptr;
+    void* image_ptr;
 #if CV_WITH_AW
     capture_v4l2_aw_isp cap_v4l2_aw_isp;
 #endif
@@ -269,8 +269,10 @@ VideoCapture& VideoCapture::operator>>(Mat& image)
         image.create(d->height, d->width, CV_8UC3);
 
         d->cap_cvi.read_frame((unsigned char*)image.data);
+        
+        image_ptr = d->image_ptr;
 
-        //image_ptr = d->image_ptr;
+        cout << "pointer address of image_ptr in videocapture.cpp: " << image_ptr << endl;
     }
     else
 #endif
@@ -334,9 +336,9 @@ double VideoCapture::get(int propId) const
 }
 
 //added by jj
-void * VideoCapture::getFrameInfo() 
-{
-    return d->image_ptr;
-}
+// void * VideoCapture::getFrameInfo() 
+// {
+//     return d->image_ptr;
+// }
 
 }

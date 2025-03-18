@@ -75,7 +75,7 @@ std::string trim(const std::string &s) {
 }
 
 // Forward declarations
-void connect();
+bool connect();
 bool connectToWifi(const std::string& ssid, const std::string& password);
 std::string getIPAddress();
 HttpResponse httpGet(const std::string& url);
@@ -112,7 +112,7 @@ void cleanUp() {
 }
 
 // Read WiFi configuration file, parse key-value pairs, and attempt to connect.
-void connect() {
+bool connect() {
     std::string ssid, password;
     bool isConnected = false;
     
@@ -141,18 +141,21 @@ void connect() {
         }
         // Try to connect using read credentials.
         isConnected = connectToWifi(ssid, password);
-        bool canConnectToRemote = connectToRemote();
-        if (!canConnectToRemote) {
-            isConnected = false;
-        }
+        isConnected = connectToRemote();
     }
     // If not connected, scan for QR code to get credentials.
     if (!isConnected) {
         openCamera();
+        int qrTimes = 0;
         while (!interrupted) {
+            qrTimes++;
+            if (qrTimes >= 5) {
+                sendErrorToRemote("Unable to detect WIFI QR Code");
+                return false;
+            }
             std::string qrContent = detectQR();
             if (qrContent.empty()) {
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::this_thread::sleep_for(std::chrono::seconds(3));
                 continue;
             }
             std::cout << "QR Content: " << qrContent << std::endl;
@@ -185,15 +188,19 @@ void connect() {
         }
     }
     // Save configuration for future use.
-    std::string wifiConfig = "ssid:" + ssid + "\npassword:" + password + "\nremoteBaseUrl:" + remoteBaseUrl;
-    std::ofstream newFile(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
-    if (newFile.is_open()) {
-        newFile << wifiConfig;
-        newFile.close();
-    } else {
-        //no need to treat it as error since all 3 variables are ready
-        std::cerr << "Unable to open file for writing: " << WIFI_CONFIG_FILE_PATH << std::endl;
+    if (!ssid.empty() && !password.empty() && !remoteBaseUrl.empty()) {
+        std::string wifiConfig = "ssid:" + ssid + "\npassword:" + password + "\nremoteBaseUrl:" + remoteBaseUrl;
+        std::ofstream newFile(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
+        if (newFile.is_open()) {
+            newFile << wifiConfig;
+            newFile.close();
+        } else {
+            //no need to treat it as error since all 3 variables are ready
+            std::cerr << "Unable to open file for writing: " << WIFI_CONFIG_FILE_PATH << std::endl;
+        }
+        return true;
     }
+    return false;
 }
 
 // Use OpenCV's QRCodeDetector to detect and decode a QR code from the current frame.
@@ -389,10 +396,9 @@ void loop() {
             noChangeCount++;
             if (noChangeCount >= NO_CHANGE_FRAME_LIMIT) {
                 std::cout << "No significant change detected." << std::endl;
-                VIDEO_FRAME_INFO_S *frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(cap.getFrameInfo());
+                VIDEO_FRAME_INFO_S *frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(cap.image_ptr);
                 if (frame_ptr == nullptr) {
-                    std::cerr << "Frame info is nullptr; releasing camera." << std::endl;
-                    cap.release();
+                    std::cerr << "Frame info is nullptr" << std::endl;
                     return;
                 }
                 std::cout << "Performing YOLO detection..." << std::endl;
@@ -414,7 +420,6 @@ void loop() {
             noChangeCount = 0;
         }
     }
-    cap.release();
 }
 
 // Initialize the YOLOv8 model and set algorithm parameters.
@@ -570,8 +575,9 @@ int main() {
         #ifdef NO_WIFI
             testCamera();
         #else 
-            connect();
-            loop();
+            if(connect()) {
+                loop();
+            }
         #endif
     } 
     catch (const std::exception& ex) {

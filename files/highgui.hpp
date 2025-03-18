@@ -92,8 +92,8 @@ public:
     double get(int propId) const;
 
     //added by jj
-    //void * image_ptr;
-    void * getFrameInfo();
+    void* image_ptr;
+    //void* getFrameInfo();
 
 //private:
     VideoCaptureImpl* const d;
