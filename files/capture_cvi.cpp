@@ -2762,6 +2762,7 @@ capture_cvi_impl::capture_cvi_impl()
     VpssGrp = 0;
     // VpssGrp = CVI_VPSS_GetAvailableGrp();
     VpssChn = VPSS_CHN0;
+    image_ptr = nullptr;
 }
 
 capture_cvi_impl::~capture_cvi_impl()

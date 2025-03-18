@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <iostream>
 
 #if CV_WITH_CVI
 #include "capture_cvi.h"
@@ -47,6 +48,7 @@ public:
     float fps;
     //added by jj
     void* image_ptr;
+
 #if CV_WITH_AW
     capture_v4l2_aw_isp cap_v4l2_aw_isp;
 #endif
@@ -67,6 +69,8 @@ VideoCaptureImpl::VideoCaptureImpl()
     width = 640;
     height = 480;
     fps = 30;
+    //added by jj
+    image_ptr = nullptr;
 }
 
 VideoCapture::VideoCapture() : d(new VideoCaptureImpl)
@@ -270,9 +274,11 @@ VideoCapture& VideoCapture::operator>>(Mat& image)
 
         d->cap_cvi.read_frame((unsigned char*)image.data);
         
-        image_ptr = d->image_ptr;
-
-        cout << "pointer address of image_ptr in videocapture.cpp: " << image_ptr << endl;
+        //image_ptr = d->cap_cvi->image_ptr;
+        //added by jj
+        d->image_ptr = d->cap_cvi.image_ptr;
+        
+        //std::cout << "pointer address of image_ptr in videocapture.cpp: " << image_ptr << std::endl;
     }
     else
 #endif
