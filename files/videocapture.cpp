@@ -270,7 +270,7 @@ VideoCapture& VideoCapture::operator>>(Mat& image)
 
         d->cap_cvi.read_frame((unsigned char*)image.data);
 
-        image_ptr = d->getFrameInfo();
+        image_ptr = d->image_ptr;
     }
     else
 #endif
@@ -332,5 +332,9 @@ double VideoCapture::get(int propId) const
     fprintf(stderr, "ignore unsupported cv cap propId %d\n", propId);
     return 0.0;
 }
+
+// void * getFrameInfo() {
+//     return d->image
+// }
 
 }

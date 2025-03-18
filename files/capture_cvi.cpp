@@ -2653,7 +2653,7 @@ public:
 
     int close();
 
-    void * getFrameInfo();
+    //void * getFrameInfo();
 
 public:
     int crop_width;
@@ -3822,9 +3822,9 @@ OUT:
     return ret_val;
 }
 
-void * capture_cvi_impl::getFrameInfo() {
-    return image_ptr;
-}
+// void * capture_cvi_impl::getFrameInfo() {
+//     return image_ptr;
+// }
 
 int capture_cvi_impl::stop_streaming()
 {
@@ -4251,10 +4251,10 @@ int capture_cvi::read_frame(unsigned char* bgrdata)
     return d->read_frame(bgrdata);
 }
 
-void * capture_cvi::getFrameInfo() 
-{
-    return d->getFrameInfo();
-}
+// void * capture_cvi::getFrameInfo() 
+// {
+//     return d->getFrameInfo();
+// }
 
 int capture_cvi::stop_streaming()
 {
