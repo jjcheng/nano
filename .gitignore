@@ -35,5 +35,5 @@ main
 libs/
 build/
 venv/
-tmp
+# tmp
 instruction.md
