@@ -53,7 +53,7 @@ public:
 private:
     capture_cvi_impl* const d;
     //added by jj
-    VIDEO_FRAME_INFO_S* image_ptr;
+    void* image_ptr;
 };
 
 } // namespace cv

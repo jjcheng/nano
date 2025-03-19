@@ -2715,7 +2715,7 @@ public:
 
 private:
     //added by jj
-    VIDEO_FRAME_INFO_S* image_ptr;
+    void* image_ptr;
 };
 
 capture_cvi_impl::capture_cvi_impl()
@@ -3842,8 +3842,10 @@ void* capture_cvi_impl::getImagePtr() {
 
 //added by jj
 void capture_cvi_impl::releaseImagePtr() {
-    delete image_ptr;
-    image_ptr = nullptr;
+    if(image_ptr) {
+        free(image_ptr);
+        image_ptr = nullptr;
+    }
 }
 
 int capture_cvi_impl::stop_streaming()
