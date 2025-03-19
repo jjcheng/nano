@@ -2715,7 +2715,7 @@ public:
 
 private:
     //added by jj
-    void* image_ptr;
+    VIDEO_FRAME_INFO_S* image_ptr;
 };
 
 capture_cvi_impl::capture_cvi_impl()
