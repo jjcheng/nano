@@ -374,7 +374,7 @@ void loop() {
     
     while (!interrupted) {
         cv::Mat img;
-        //will return VIDEO_FRAME_INFO_S*
+        //capture() mathod will return VIDEO_FRAME_INFO_S*
         void* image_ptr = cap.capture(img);
         if (img.empty()) {
             cap.releaseImagePtr();
@@ -393,6 +393,8 @@ void loop() {
         cv::cvtColor(img, grayFrame, cv::COLOR_BGR2GRAY);
         if (previousNoChangeFrame.empty()) {
             previousNoChangeFrame = grayFrame.clone();
+            cap.releaseImagePtr();
+            image_ptr = nullptr;
             continue;
         }
         cv::Mat diff, thresh;
@@ -417,7 +419,7 @@ void loop() {
                 //release image_ptr
                 cap.releaseImagePtr();
                 image_ptr = nullptr;
-                frameInfo= nullptr;
+                frameInfo = nullptr;
                 //check for detections
                 if (obj_meta.size > 0) {
                     for (uint32_t i = 0; i < obj_meta.size; i++) {
@@ -434,6 +436,8 @@ void loop() {
             previousNoChangeFrame = grayFrame.clone();
             noChangeCount = 0;
         }
+        cap.releaseImagePtr();
+        image_ptr = nullptr;
     }
 }
 

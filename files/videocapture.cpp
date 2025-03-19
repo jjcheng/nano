@@ -242,7 +242,7 @@ void VideoCapture::release()
     d->fps = 30;
 }
 
-//added by jj
+//added by jj, this method returns VIDEO_FRAME_INFO_S
 void* VideoCapture::capture(Mat& image) {
     if (!d->is_opened)
         return nullptr;

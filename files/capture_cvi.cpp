@@ -3806,7 +3806,7 @@ OUT:
         {
             image_ptr = new VIDEO_FRAME_INFO_S;
             memcpy(image_ptr, &stFrameInfo_bgr, sizeof(VIDEO_FRAME_INFO_S));
-            printf("pointer address of image_ptr in capture_cvi.cpp: %p\n", image_ptr);
+            //printf("pointer address of image_ptr in capture_cvi.cpp: %p\n", image_ptr);
         }        
 
         CVI_S32 ret = CVI_VPSS_ReleaseChnFrame(VpssGrp, VpssChn, &stFrameInfo_bgr);
@@ -3831,7 +3831,9 @@ OUT:
         b_vi_frame_got = 0;
     }
     //added by jj
-    printf("pointer address of image_ptr in capture_cvi.cpp 2: %p\n", image_ptr);
+    // if (retain_image_ptr) {
+    //     printf("pointer address of image_ptr in capture_cvi.cpp: %p\n", image_ptr);
+    // }
     return ret_val;
 }
 
