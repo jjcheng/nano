@@ -101,9 +101,9 @@ void interruptHandler(int signum) {
 // Clean up resources gracefully.
 void cleanUp() {
     std::cout << "Cleaning up resources..." << std::endl;
-    if (cap.isOpened()) {
+    //if (cap.isOpened()) {
         cap.release();
-    }
+    //}
     if (tdl_handle != nullptr) {
         CVI_TDL_DestroyHandle(tdl_handle);
         tdl_handle = nullptr;
@@ -413,7 +413,7 @@ void loop() {
                     image_ptr = nullptr;
                     continue;
                 }
-                std::cout << "Performing YOLO detection..." << std::endl;
+                //std::cout << "Performing YOLO detection..." << std::endl;
                 cvtdl_object_t obj_meta = {0};
                 CVI_TDL_YOLOV8_Detection(tdl_handle, frameInfo, &obj_meta);
                 //release image_ptr
@@ -426,8 +426,9 @@ void loop() {
                         std::printf("Detected class %d!\n", obj_meta.info[i].classes);
                     }
                     sendImage();
+                    continue;
                 } else {
-                    std::cout << "No objects detected." << std::endl;
+                    //std::cout << "No objects detected." << std::endl;
                 }
             }
         } else {
@@ -437,7 +438,9 @@ void loop() {
             noChangeCount = 0;
         }
         cap.releaseImagePtr();
-        image_ptr = nullptr;
+        if (image_ptr) {
+            image_ptr = nullptr;
+        }
     }
 }
 
@@ -465,9 +468,10 @@ void initModel() {
 // Capture an image, encode it to JPEG, and send it via HTTP POST.
 void sendImage() {
     std::cout << "Sending image to remote server..." << std::endl;
-    if (!setCameraResolution(true))
+    if (!setCameraResolution(true)) {
+        printf("failed to change resolution\n");
         return;
-
+    }
     cv::Mat frame;
     cap >> frame;
     if (frame.empty()) {
@@ -475,12 +479,11 @@ void sendImage() {
         return;
     }
     std::vector<uchar> buffer;
-    std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 90 };
+    std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 100 };
     if (!cv::imencode(".jpg", frame, buffer, params)) {
         std::cerr << "Failed to encode image." << std::endl;
         return;
     }
-
     CURL* curl = curl_easy_init();
     if (!curl) {
         std::cerr << "Failed to initialize libcurl" << std::endl;

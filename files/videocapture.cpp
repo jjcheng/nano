@@ -270,7 +270,7 @@ void* VideoCapture::capture(Mat& image) {
     {
         image.create(d->height, d->width, CV_8UC3);
         d->cap_cvi.read_frame((unsigned char*)image.data, true);
-        std::cout << "d->capcvi.image_ptr address: " << d->cap_cvi.getImagePtr() << std::endl;
+        //std::cout << "d->capcvi.image_ptr address: " << d->cap_cvi.getImagePtr() << std::endl;
         return d->cap_cvi.getImagePtr();
     }
     else
