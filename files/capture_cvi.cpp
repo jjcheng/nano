@@ -3801,8 +3801,8 @@ OUT:
 
     if (b_vpss_frame_got)
     {
-         //added by jj
-         if (retain_image_ptr)
+        //added by jj
+        if (retain_image_ptr)
         {
             image_ptr = new VIDEO_FRAME_INFO_S;
             memcpy(image_ptr, &stFrameInfo_bgr, sizeof(VIDEO_FRAME_INFO_S));
