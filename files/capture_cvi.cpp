@@ -3805,7 +3805,7 @@ OUT:
          if (retain_image_ptr)
         {
             image_ptr = new VIDEO_FRAME_INFO_S;
-            std::memcpy(image_ptr, &stFrameInfo_bgr, sizeof(VIDEO_FRAME_INFO_S));
+            memcpy(image_ptr, &stFrameInfo_bgr, sizeof(VIDEO_FRAME_INFO_S));
             printf("pointer address of image_ptr in capture_cvi.cpp: %p\n", image_ptr);
         }        
 
