@@ -52,6 +52,8 @@ constexpr double MODEL_THRESH = 0.1;
 constexpr double MODEL_NMS_THRESH = 0.1;
 constexpr int INPUT_WIDTH = 320;
 constexpr int INPUT_HEIGHT = 320;
+constexpr int MAX_FRAME_WIDTH = 2560;
+constexpr int MAX_FRAME_HEIGHT = 1440;
 
 // Global variables
 std::string remoteBaseUrl = "";
@@ -81,7 +83,7 @@ std::string getIPAddress();
 HttpResponse httpGet(const std::string& url);
 HttpResponse postHttp(const std::string& url);
 std::string detectQR();
-void openCamera();
+void openCamera(int width, int height);
 bool connectToRemote();
 bool runSystemCommand(const std::string& command);
 void initModel();
@@ -101,9 +103,7 @@ void interruptHandler(int signum) {
 // Clean up resources gracefully.
 void cleanUp() {
     std::cout << "Cleaning up resources..." << std::endl;
-    //if (cap.isOpened()) {
-        cap.release();
-    //}
+    cap.release();
     if (tdl_handle != nullptr) {
         CVI_TDL_DestroyHandle(tdl_handle);
         tdl_handle = nullptr;
@@ -145,7 +145,7 @@ bool connect() {
     }
     // If not connected, scan for QR code to get credentials.
     if (!isConnected) {
-        openCamera();
+        openCamera(INPUT_WIDTH, INPUT_HEIGHT);
         int qrTimes = 0;
         while (!interrupted) {
             qrTimes++;
@@ -215,18 +215,18 @@ std::string detectQR() {
 }
 
 // Open the default camera and warm it up by skipping initial frames.
-void openCamera() {
+void openCamera(int width, int height) {
     while (!interrupted && !cap.isOpened()) {
         std::cout << "Opening camera..." << std::endl;
-        cap.set(cv::CAP_PROP_FRAME_WIDTH, INPUT_WIDTH);
-        cap.set(cv::CAP_PROP_FRAME_HEIGHT, INPUT_HEIGHT);
+        cap.set(cv::CAP_PROP_FRAME_WIDTH, width);
+        cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
         cap.open(0);
         if (!cap.isOpened()) {
             std::cerr << "Failed to open camera; retrying in 3 seconds..." << std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(3));
         } else {
             cv::Mat dummy;
-            for (int i = 0; i < 30 && !interrupted; ++i)
+            for (int i = 0; i < 15 && !interrupted; ++i)
                 cap >> dummy;
             std::cout << "Camera opened successfully." << std::endl;
         }
@@ -236,15 +236,15 @@ void openCamera() {
 // Set camera resolution. If max==true, set to 2560x1440; otherwise, set to default INPUT dimensions.
 bool setCameraResolution(bool max) {
     if (max) {
-        cap.set(cv::CAP_PROP_FRAME_WIDTH, 2560);
-        cap.set(cv::CAP_PROP_FRAME_HEIGHT, 1440);
+        cap.set(cv::CAP_PROP_FRAME_WIDTH, MAX_FRAME_WIDTH);
+        cap.set(cv::CAP_PROP_FRAME_HEIGHT, MAX_FRAME_HEIGHT);
     } else {
         cap.set(cv::CAP_PROP_FRAME_WIDTH, INPUT_WIDTH);
         cap.set(cv::CAP_PROP_FRAME_HEIGHT, INPUT_HEIGHT);
     }
     int width = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
     int height = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
-    if (max && (width != 2560 || height != 1440))
+    if (max && (width != MAX_FRAME_WIDTH || height != MAX_FRAME_HEIGHT))
         return false;
     if (!max && (width != INPUT_WIDTH || height != INPUT_HEIGHT))
         return false;
@@ -369,7 +369,7 @@ void loop() {
     int noChangeCount = 0;
     cv::Mat previousNoChangeFrame;
 
-    openCamera();
+    openCamera(INPUT_WIDTH, INPUT_HEIGHT);
     initModel();
     
     while (!interrupted) {
@@ -381,13 +381,18 @@ void loop() {
             image_ptr = nullptr;
             continue;
         }
+        //resize to input 
+        // cv::Size newSize(INPUT_WIDTH, INPUT_HEIGHT);
+        // cv::Mat resizedImage;
+        // cv::resize(img, resizedImage, newSize);
+        int totalPixels = img.cols * img.rows;
         if (image_ptr == nullptr) {
             std::cerr << "main.cpp image_ptr is nullptr" << std::endl;
             cap.releaseImagePtr();
             continue;
         }
         if (changedThreshold == 0) {
-            changedThreshold = static_cast<int>(img.cols * img.rows * CHANGE_THRESHOLD_PERCENT);
+            changedThreshold = static_cast<int>(totalPixels * CHANGE_THRESHOLD_PERCENT);
         }
         cv::Mat grayFrame;
         cv::cvtColor(img, grayFrame, cv::COLOR_BGR2GRAY);
@@ -431,7 +436,7 @@ void loop() {
             previousNoChangeFrame = grayFrame.clone();
             continue;
         } else {
-            int percent = static_cast<int>((static_cast<float>(nonZeroCount) / (img.cols * img.rows)) * 100);
+            int percent = static_cast<int>((static_cast<float>(nonZeroCount) / totalPixels) * 100);
             std::cout << "Change detected: " << percent << "%" << std::endl;
             previousNoChangeFrame = grayFrame.clone();
             noChangeCount = 0;
@@ -467,15 +472,22 @@ void initModel() {
 // Capture an image, encode it to JPEG, and send it via HTTP POST.
 void sendImage() {
     std::cout << "Sending image to remote server..." << std::endl;
-    if (!setCameraResolution(true)) {
-        printf("failed to change resolution\n");
-        return;
-    }
+    cap.release();
+    openCamera(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
+    // if (!setCameraResolution(true)) {
+    //     printf("failed to change resolution\n");
+    //     return;
+    // }
+    //wait for 1 seconds
+    //std::this_thread::sleep_for(std::chrono::seconds(1));
     cv::Mat frame;
     cap >> frame;
     if (frame.empty()) {
         std::cerr << "Captured empty frame!" << std::endl;
-        setCameraResolution(false);
+        //setCameraResolution(false);
+       //cap.release();
+        cap.release();
+        openCamera(INPUT_WIDTH, INPUT_HEIGHT);
         return;
     }
     // Define JPEG compression parameters
@@ -483,22 +495,28 @@ void sendImage() {
     // compression_params.push_back(cv::IMWRITE_JPEG_QUALITY);
     // compression_params.push_back(100); // Quality level (0-100)
     // // Save the image to a file
-    // if (cv::imwrite("/root/captured_image.jpg", frame, compression_params)) {
+    // if (cv::imwrite("/root/captured_image.jpg", frame)) {
     //     std::cout << "Image saved successfully as 'captured_image.jpg'." << std::endl;
     // } else {
     //     std::cerr << "Error: Could not save the image." << std::endl;
     // }
+    // setCameraResolution(false);
+    // return;
     std::vector<uchar> buffer;
     std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 100 };
     if (!cv::imencode(".jpg", frame, buffer, params)) {
         std::cerr << "Failed to encode image." << std::endl;
-        setCameraResolution(false);
+        //setCameraResolution(false);
+        cap.release();
+        openCamera(INPUT_WIDTH, INPUT_HEIGHT);
         return;
     }
     CURL* curl = curl_easy_init();
     if (!curl) {
         std::cerr << "Failed to initialize libcurl" << std::endl;
-        setCameraResolution(false);
+        //setCameraResolution(false);
+        cap.release();
+        openCamera(INPUT_WIDTH, INPUT_HEIGHT);
         return;
     }
     struct curl_slist* headers = nullptr;
@@ -519,7 +537,9 @@ void sendImage() {
     }
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
-    setCameraResolution(false);
+    //setCameraResolution(false);
+    cap.release();
+    openCamera(INPUT_WIDTH, INPUT_HEIGHT);
 }
 
 void sendErrorToRemote(const std::string& error) {
@@ -572,7 +592,7 @@ void testDetect() {
 
 // Test camera capture and detection continuously (for debugging).
 void testCamera() {
-    openCamera();
+    //openCamera();
     initModel();
     while (!interrupted) {
         cv::Mat img;
