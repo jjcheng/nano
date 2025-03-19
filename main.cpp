@@ -403,34 +403,33 @@ void loop() {
         int nonZeroCount = cv::countNonZero(thresh);
         if (nonZeroCount < changedThreshold) {
             noChangeCount++;
-            if (noChangeCount >= NO_CHANGE_FRAME_LIMIT) {
-                std::cout << "No significant change detected." << std::endl;
-                //convert image_ptr to VIDEO_FRAME_INFO_S*
-                VIDEO_FRAME_INFO_S *frameInfo = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image_ptr);
-                if (frameInfo == nullptr) {
-                    std::cerr << "frameInfo is nullptr" << std::endl;
-                    cap.releaseImagePtr();
-                    image_ptr = nullptr;
-                    continue;
-                }
-                //std::cout << "Performing YOLO detection..." << std::endl;
-                cvtdl_object_t obj_meta = {0};
-                CVI_TDL_YOLOV8_Detection(tdl_handle, frameInfo, &obj_meta);
-                //release image_ptr
+            if (noChangeCount != NO_CHANGE_FRAME_LIMIT) {
+                continue;
+            }
+            std::cout << "No significant change detected." << std::endl;
+            //convert image_ptr to VIDEO_FRAME_INFO_S*
+            VIDEO_FRAME_INFO_S *frameInfo = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image_ptr);
+            if (frameInfo == nullptr) {
+                std::cerr << "frameInfo is nullptr" << std::endl;
                 cap.releaseImagePtr();
                 image_ptr = nullptr;
-                frameInfo = nullptr;
-                //check for detections
-                if (obj_meta.size > 0) {
-                    for (uint32_t i = 0; i < obj_meta.size; i++) {
-                        std::printf("Detected class %d!\n", obj_meta.info[i].classes);
-                    }
-                    sendImage();
-                    continue;
-                } else {
-                    //std::cout << "No objects detected." << std::endl;
-                }
+                continue;
             }
+            //std::cout << "Performing YOLO detection..." << std::endl;
+            cvtdl_object_t obj_meta = {0};
+            CVI_TDL_YOLOV8_Detection(tdl_handle, frameInfo, &obj_meta);
+            //release image_ptr
+            cap.releaseImagePtr();
+            image_ptr = nullptr;
+            frameInfo = nullptr;
+            //check for detections
+            if (obj_meta.size == 0) {
+                continue;
+            }
+            std::printf("Detected %d objects\n", obj_meta.size);
+            sendImage();
+            previousNoChangeFrame = grayFrame.clone();
+            continue;
         } else {
             int percent = static_cast<int>((static_cast<float>(nonZeroCount) / (img.cols * img.rows)) * 100);
             std::cout << "Change detected: " << percent << "%" << std::endl;
@@ -476,17 +475,30 @@ void sendImage() {
     cap >> frame;
     if (frame.empty()) {
         std::cerr << "Captured empty frame!" << std::endl;
+        setCameraResolution(false);
         return;
     }
+    // Define JPEG compression parameters
+    // std::vector<int> compression_params;
+    // compression_params.push_back(cv::IMWRITE_JPEG_QUALITY);
+    // compression_params.push_back(100); // Quality level (0-100)
+    // // Save the image to a file
+    // if (cv::imwrite("/root/captured_image.jpg", frame, compression_params)) {
+    //     std::cout << "Image saved successfully as 'captured_image.jpg'." << std::endl;
+    // } else {
+    //     std::cerr << "Error: Could not save the image." << std::endl;
+    // }
     std::vector<uchar> buffer;
     std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 100 };
     if (!cv::imencode(".jpg", frame, buffer, params)) {
         std::cerr << "Failed to encode image." << std::endl;
+        setCameraResolution(false);
         return;
     }
     CURL* curl = curl_easy_init();
     if (!curl) {
         std::cerr << "Failed to initialize libcurl" << std::endl;
+        setCameraResolution(false);
         return;
     }
     struct curl_slist* headers = nullptr;
@@ -497,7 +509,6 @@ void sendImage() {
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, buffer.data());
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, buffer.size());
-
     CURLcode res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
         std::cerr << "Image upload failed: " << curl_easy_strerror(res) << std::endl;
@@ -508,6 +519,7 @@ void sendImage() {
     }
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
+    setCameraResolution(false);
 }
 
 void sendErrorToRemote(const std::string& error) {
@@ -581,7 +593,6 @@ void testCamera() {
         CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
         if (obj_meta.size > 0) {
             std::printf("Detection found!\n");
-            sendImage();
         } else {
             std::printf("No detection!\n");
         }
@@ -591,7 +602,10 @@ void testCamera() {
 }
 
 int main() {
-    curl_global_init(CURL_GLOBAL_ALL); 
+    if(curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
+        std::cerr << "curl_global_init() failed" << std::endl;
+        return -1;
+    }
     signal(SIGINT, interruptHandler);
     try {
         #ifdef NO_WIFI
