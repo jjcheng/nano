@@ -4268,9 +4268,20 @@ int capture_cvi::start_streaming()
     return d->start_streaming();
 }
 
+//added by jj
 int capture_cvi::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
 {
     return d->read_frame(bgrdata, retain_image_ptr);
+}
+
+//added by jj
+void* capture_cvi::getImagePtr() {
+    return d->getImagePtr();
+}
+
+//added by jj
+void capture_cvi::releaseImagePtr() {
+    d->releaseImagePtr();
 }
 
 int capture_cvi::stop_streaming()

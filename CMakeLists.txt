@@ -16,7 +16,7 @@ include_directories(
 )
 
 set(OpenCV_DIR "${CMAKE_CURRENT_SOURCE_DIR}/opencv-mobile-4.10.0/build/install/lib/cmake/opencv4")
-set(CURL_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/files/libcurl.so")
+set(CURL_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/nano/files/libcurl.so")
 
 find_package(OpenCV REQUIRED)
 find_package(CURL REQUIRED)
