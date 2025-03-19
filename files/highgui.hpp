@@ -87,15 +87,16 @@ public:
 
     VideoCapture& operator>>(Mat& bgr_image);
 
+    //added by jj
+    void* VideoCapture::capture(Mat& image); //return image_ptr
+    //added by jj
+    void releaseImagePtr(); //release image_ptr
+
     bool set(int propId, double value);
 
     double get(int propId) const;
 
-    //added by jj
-    void* image_ptr;
-    //void* getFrameInfo();
-
-//private:
+private:
     VideoCaptureImpl* const d;
     
 };

@@ -21,6 +21,8 @@
 #include <string.h>
 #include <iostream>
 
+//#define CV_WITH_CVI true
+
 #if CV_WITH_CVI
 #include "capture_cvi.h"
 #endif
@@ -46,8 +48,6 @@ public:
     int width;
     int height;
     float fps;
-    //added by jj
-    void* image_ptr;
 
 #if CV_WITH_AW
     capture_v4l2_aw_isp cap_v4l2_aw_isp;
@@ -69,8 +69,6 @@ VideoCaptureImpl::VideoCaptureImpl()
     width = 640;
     height = 480;
     fps = 30;
-    //added by jj
-    image_ptr = nullptr;
 }
 
 VideoCapture::VideoCapture() : d(new VideoCaptureImpl)
@@ -244,6 +242,60 @@ void VideoCapture::release()
     d->fps = 30;
 }
 
+//added by jj
+void* VideoCapture::capture(Mat& image) {
+    if (!d->is_opened)
+        return nullptr;
+
+#if CV_WITH_AW
+    if (capture_v4l2_aw_isp::supported())
+    {
+        image.create(d->height, d->width, CV_8UC3);
+
+        d->cap_v4l2_aw_isp.read_frame((unsigned char*)image.data);
+    }
+    else
+#endif
+#if CV_WITH_RK
+    if (capture_v4l2_rk_aiq::supported())
+    {
+        image.create(d->height, d->width, CV_8UC3);
+
+        d->cap_v4l2_rk_aiq.read_frame((unsigned char*)image.data);
+    }
+    else
+#endif
+#if CV_WITH_CVI
+    if (capture_cvi::supported())
+    {
+        image.create(d->height, d->width, CV_8UC3);
+        d->cap_cvi.read_frame((unsigned char*)image.data, true);
+        std::cout << "d->capcvi.image_ptr address: " << d->cap_cvi.getImagePtr() << std::endl;
+        return d->cap_cvi.getImagePtr();
+    }
+    else
+#endif
+#if defined __linux__
+    if (capture_v4l2::supported())
+    {
+        image.create(d->height, d->width, CV_8UC3);
+
+        d->cap_v4l2.read_frame((unsigned char*)image.data);
+    }
+    else
+#endif
+    {
+    }
+    return nullptr;
+}
+
+//added by jj
+void VideoCapture::releaseImagePtr() {
+    #if CV_WITH_CVI
+    d->cap_cvi.releaseImagePtr();
+    #endif
+}
+
 VideoCapture& VideoCapture::operator>>(Mat& image)
 {
     if (!d->is_opened)
@@ -272,13 +324,7 @@ VideoCapture& VideoCapture::operator>>(Mat& image)
     {
         image.create(d->height, d->width, CV_8UC3);
 
-        d->cap_cvi.read_frame((unsigned char*)image.data);
-        
-        //image_ptr = d->cap_cvi->image_ptr;
-        //added by jj
-        d->image_ptr = d->cap_cvi.image_ptr;
-        
-        //std::cout << "pointer address of image_ptr in videocapture.cpp: " << image_ptr << std::endl;
+        d->cap_cvi.read_frame((unsigned char*)image.data, false);
     }
     else
 #endif
@@ -340,11 +386,5 @@ double VideoCapture::get(int propId) const
     fprintf(stderr, "ignore unsupported cv cap propId %d\n", propId);
     return 0.0;
 }
-
-//added by jj
-// void * VideoCapture::getFrameInfo() 
-// {
-//     return d->image_ptr;
-// }
 
 }

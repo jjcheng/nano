@@ -374,13 +374,21 @@ void loop() {
     
     while (!interrupted) {
         cv::Mat img;
-        cap >> img;
-        if (img.empty())
+        //will return VIDEO_FRAME_INFO_S*
+        void* image_ptr = cap.capture(img);
+        if (img.empty()) {
+            cap.releaseImagePtr();
+            image_ptr = nullptr;
             continue;
-
-        if (changedThreshold == 0)
+        }
+        if (image_ptr == nullptr) {
+            std::cerr << "main.cpp image_ptr is nullptr" << std::endl;
+            cap.releaseImagePtr();
+            continue;
+        }
+        if (changedThreshold == 0) {
             changedThreshold = static_cast<int>(img.cols * img.rows * CHANGE_THRESHOLD_PERCENT);
-
+        }
         cv::Mat grayFrame;
         cv::cvtColor(img, grayFrame, cv::COLOR_BGR2GRAY);
         if (previousNoChangeFrame.empty()) {
@@ -391,19 +399,26 @@ void loop() {
         cv::absdiff(grayFrame, previousNoChangeFrame, diff);
         cv::threshold(diff, thresh, 30, 255, cv::THRESH_BINARY);
         int nonZeroCount = cv::countNonZero(thresh);
-
         if (nonZeroCount < changedThreshold) {
             noChangeCount++;
             if (noChangeCount >= NO_CHANGE_FRAME_LIMIT) {
                 std::cout << "No significant change detected." << std::endl;
-                VIDEO_FRAME_INFO_S *frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(cap.image_ptr);
-                if (frame_ptr == nullptr) {
-                    std::cerr << "Frame info is nullptr" << std::endl;
-                    return;
+                //convert image_ptr to VIDEO_FRAME_INFO_S*
+                VIDEO_FRAME_INFO_S *frameInfo = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image_ptr);
+                if (frameInfo == nullptr) {
+                    std::cerr << "frameInfo is nullptr" << std::endl;
+                    cap.releaseImagePtr();
+                    image_ptr = nullptr;
+                    continue;
                 }
                 std::cout << "Performing YOLO detection..." << std::endl;
                 cvtdl_object_t obj_meta = {0};
-                CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
+                CVI_TDL_YOLOV8_Detection(tdl_handle, frameInfo, &obj_meta);
+                //release image_ptr
+                cap.releaseImagePtr();
+                image_ptr = nullptr;
+                frameInfo= nullptr;
+                //check for detections
                 if (obj_meta.size > 0) {
                     for (uint32_t i = 0; i < obj_meta.size; i++) {
                         std::printf("Detected class %d!\n", obj_meta.info[i].classes);

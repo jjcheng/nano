@@ -2647,11 +2647,15 @@ public:
 
     int start_streaming();
 
-    int read_frame(unsigned char* bgrdata);
+    int read_frame(unsigned char* bgrdata, bool retain_image_ptr);
 
     int stop_streaming();
 
     int close();
+
+    //added by jj
+    void* getImagePtr();
+    void releaseImagePtr();
 
 public:
     int crop_width;
@@ -2709,6 +2713,7 @@ public:
     VPSS_CHN VpssChn = VPSS_CHN0;
     VIDEO_FRAME_INFO_S stFrameInfo_bgr;
 
+private:
     //added by jj
     void* image_ptr;
 };
@@ -2762,6 +2767,7 @@ capture_cvi_impl::capture_cvi_impl()
     VpssGrp = 0;
     // VpssGrp = CVI_VPSS_GetAvailableGrp();
     VpssChn = VPSS_CHN0;
+    //added by jj
     image_ptr = nullptr;
 }
 
@@ -3646,7 +3652,8 @@ OUT:
     return ret_val;
 }
 
-int capture_cvi_impl::read_frame(unsigned char* bgrdata)
+//modified by jj
+int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
 {
     int ret_val = 0;
 
@@ -3789,14 +3796,19 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata)
 
         CVI_SYS_Munmap(mapped_ptr, length);
     }
-    //added by jj
-    image_ptr = &stFrameInfo_bgr;
-    printf("pointer address of image_ptr in capture_cvi.cpp: %p\n", (void*)image_ptr);
 
 OUT:
 
     if (b_vpss_frame_got)
     {
+         //added by jj
+         if (retain_image_ptr)
+        {
+            image_ptr = new VIDEO_FRAME_INFO_S;
+            std::memcpy(image_ptr, &stFrameInfo_bgr, sizeof(VIDEO_FRAME_INFO_S));
+            printf("pointer address of image_ptr in capture_cvi.cpp: %p\n", image_ptr);
+        }        
+
         CVI_S32 ret = CVI_VPSS_ReleaseChnFrame(VpssGrp, VpssChn, &stFrameInfo_bgr);
         if (ret != CVI_SUCCESS)
         {
@@ -3818,8 +3830,20 @@ OUT:
 
         b_vi_frame_got = 0;
     }
-    
+    //added by jj
+    printf("pointer address of image_ptr in capture_cvi.cpp 2: %p\n", image_ptr);
     return ret_val;
+}
+
+//added by jj
+void* capture_cvi_impl::getImagePtr() {
+    return image_ptr;
+}
+
+//added by jj
+void capture_cvi_impl::releaseImagePtr() {
+    delete image_ptr;
+    image_ptr = nullptr;
 }
 
 int capture_cvi_impl::stop_streaming()
@@ -4242,9 +4266,9 @@ int capture_cvi::start_streaming()
     return d->start_streaming();
 }
 
-int capture_cvi::read_frame(unsigned char* bgrdata)
+int capture_cvi::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
 {
-    return d->read_frame(bgrdata);
+    return d->read_frame(bgrdata, retain_image_ptr);
 }
 
 int capture_cvi::stop_streaming()

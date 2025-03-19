@@ -99,6 +99,13 @@
     "*.tcc": "cpp",
     "rope": "cpp",
     "slist": "cpp",
-    "netfwd": "cpp"
+    "netfwd": "cpp",
+    "ranges": "cpp",
+    "hash_map": "cpp",
+    "*.def": "cpp",
+    "memory_resource": "cpp",
+    "stop_token": "cpp",
+    "*.ipp": "cpp",
+    "*.inc": "cpp"
   }
 }

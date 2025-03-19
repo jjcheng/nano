@@ -38,17 +38,22 @@ public:
 
     int start_streaming();
 
-    int read_frame(unsigned char* bgrdata);
+    //modified by jj
+    int read_frame(unsigned char* bgrdata, bool retain_image_ptr);
 
     int stop_streaming();
 
     int close();
 
     //added by jj
-    void* image_ptr;
+    void* getImagePtr();
+    //added by jj
+    void releaseImagePtr();
 
 private:
     capture_cvi_impl* const d;
+    //added by jj
+    void* image_ptr;
 };
 
 } // namespace cv
