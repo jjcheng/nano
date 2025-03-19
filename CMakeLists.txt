@@ -15,8 +15,8 @@ include_directories(
     $ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include/linux
 )
 
-set(OpenCV_DIR "${CMAKE_CURRENT_SOURCE_DIR}/opencv-mobile-4.10.0/build/install/lib/cmake/opencv4")
-set(CURL_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/nano/files/libcurl.so")
+set(OpenCV_DIR "$ENV{SDK_PATH}/opencv-mobile-4.10.0/build/install/lib/cmake/opencv4")
+set(CURL_LIBRARY "$ENV{SDK_PATH}/nano/files/libcurl.so")
 
 find_package(OpenCV REQUIRED)
 find_package(CURL REQUIRED)
