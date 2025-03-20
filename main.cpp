@@ -179,6 +179,8 @@ std::string detectQR() {
     cv::Mat frame;
     cap >> frame;
     if (frame.empty()) return "";
+    cv::Mat gray;
+    cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
     //cv::Mat frame = cv::imread("/root/qr.jpg");
     //cv::Mat point;
     // bool detected = qrDecoder.detect(frame, point);
@@ -190,7 +192,7 @@ std::string detectQR() {
     // }
     //std::string text = qrDecoder.decode(frame, point);
     //printf("detected text: %s\n", text.c_str());
-    std::string data = qrDecoder.detectAndDecode(frame);
+    std::string data = qrDecoder.detectAndDecode(gray);
     return data;
 }
 
