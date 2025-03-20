@@ -68,6 +68,7 @@ struct HttpResponse {
     long statusCode;
 };
 
+// Utilities
 // Helper function to trim whitespace from both ends of a string.
 std::string trim(const std::string &s) {
     size_t start = s.find_first_not_of(" \t\r\n");
@@ -83,6 +84,82 @@ void sleepSeconds(int seconds) {
 void interruptHandler(int signum) {
     std::printf("Received signal: %d\n", signum);
     interrupted = 1;
+}
+
+// Run a system command and return true if the return code is 0.
+bool runSystemCommand(const std::string& command) {
+    int status = std::system(command.c_str());
+    if (status != 0) {
+        std::cerr << "Error executing command: " << command << std::endl;
+        return false;
+    }
+    return true;
+}
+
+// Get the IP address of the specified network interface.
+std::string getIPAddress() {
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) return "";
+    struct ifreq ifr{};
+    strncpy(ifr.ifr_name, INTERFACE_NAME, IFNAMSIZ - 1);
+    if (ioctl(fd, SIOCGIFADDR, &ifr) == -1) {
+        close(fd);
+        return "";
+    }
+    close(fd);
+    return inet_ntoa(((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr);
+}
+
+// Callback for libcurl to collect HTTP response data.
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+    size_t totalSize = size * nmemb;
+    static_cast<std::string*>(userp)->append(static_cast<char*>(contents), totalSize);
+    return totalSize;
+}
+
+// Perform an HTTP GET request using libcurl.
+HttpResponse httpGet(const std::string& url) {
+    HttpResponse response{ "", 0 };
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        std::cerr << "Failed to initialize libcurl." << std::endl;
+        return response;
+    }
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
+    CURLcode res = curl_easy_perform(curl);
+    if (res != CURLE_OK) {
+        std::cerr << "libcurl error: " << curl_easy_strerror(res) << std::endl;
+    } else {
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.statusCode);
+    }
+    curl_easy_cleanup(curl);
+    return response;
+}
+
+// Function to make an HTTP POST request with a body and return the response.
+HttpResponse httpPost(const std::string& url, const std::string& postBody) {
+    HttpResponse response { "", 0 };
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        std::cerr << "Failed to initialize libcurl." << std::endl;
+        return response;
+    }
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postBody.c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, postBody.size());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
+    CURLcode res = curl_easy_perform(curl);
+    if (res != CURLE_OK) {
+        std::cerr << "HTTP POST failed: " << curl_easy_strerror(res) << std::endl;
+    } else {
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.statusCode);
+    }
+    curl_easy_cleanup(curl);
+    return response;
 }
 
 // Clean up resources gracefully.
@@ -154,20 +231,6 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
     return false;
 }
 
-// Get the IP address of the specified network interface.
-std::string getIPAddress() {
-    int fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd < 0) return "";
-    struct ifreq ifr{};
-    strncpy(ifr.ifr_name, INTERFACE_NAME, IFNAMSIZ - 1);
-    if (ioctl(fd, SIOCGIFADDR, &ifr) == -1) {
-        close(fd);
-        return "";
-    }
-    close(fd);
-    return inet_ntoa(((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr);
-}
-
 // Connect to a remote server by sending a ping request.
 bool connectToRemote() {
     std::string myIp = getIPAddress();
@@ -186,68 +249,7 @@ bool connectToRemote() {
             sleepSeconds(3);
         }
     }
-}
-
-// Run a system command and return true if the return code is 0.
-bool runSystemCommand(const std::string& command) {
-    int status = std::system(command.c_str());
-    if (status != 0) {
-        std::cerr << "Error executing command: " << command << std::endl;
-        return false;
-    }
-    return true;
-}
-
-// Callback for libcurl to collect HTTP response data.
-size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
-    size_t totalSize = size * nmemb;
-    static_cast<std::string*>(userp)->append(static_cast<char*>(contents), totalSize);
-    return totalSize;
-}
-
-// Perform an HTTP GET request using libcurl.
-HttpResponse httpGet(const std::string& url) {
-    HttpResponse response{ "", 0 };
-    CURL* curl = curl_easy_init();
-    if (!curl) {
-        std::cerr << "Failed to initialize libcurl." << std::endl;
-        return response;
-    }
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
-    CURLcode res = curl_easy_perform(curl);
-    if (res != CURLE_OK) {
-        std::cerr << "libcurl error: " << curl_easy_strerror(res) << std::endl;
-    } else {
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.statusCode);
-    }
-    curl_easy_cleanup(curl);
-    return response;
-}
-
-// Function to make an HTTP POST request with a body and return the response.
-HttpResponse httpPost(const std::string& url, const std::string& postBody) {
-    HttpResponse response { "", 0 };
-    CURL* curl = curl_easy_init();
-    if (!curl) {
-        std::cerr << "Failed to initialize libcurl." << std::endl;
-        return response;
-    }
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_POST, 1L);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postBody.c_str());
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, postBody.size());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
-    CURLcode res = curl_easy_perform(curl);
-    if (res != CURLE_OK) {
-        std::cerr << "HTTP POST failed: " << curl_easy_strerror(res) << std::endl;
-    } else {
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.statusCode);
-    }
-    curl_easy_cleanup(curl);
-    return response;
+    return false;
 }
 
 // Initialize the YOLOv8 model and set algorithm parameters.
