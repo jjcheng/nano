@@ -178,8 +178,7 @@ std::string detectQR() {
     cv::Mat frame;
     cap >> frame;
     if (frame.empty()) return "";
-    cv::Mat bbox, rectifiedImage;
-    std::string data = qrDecoder.detectAndDecode(frame, bbox, rectifiedImage);
+    std::string data = qrDecoder.detectAndDecode(frame);
     return data;
 }
 
