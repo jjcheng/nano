@@ -1,6 +1,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/objdetect.hpp>
 
 #include <chrono>
@@ -178,6 +179,17 @@ std::string detectQR() {
     cv::Mat frame;
     cap >> frame;
     if (frame.empty()) return "";
+    //cv::Mat frame = cv::imread("/root/qr.jpg");
+    //cv::Mat point;
+    // bool detected = qrDecoder.detect(frame, point);
+    // if (detected) {
+    //     printf("QR Code Detected\n");
+    // }
+    // else {
+    //     printf("NO QR Code Detected\n");
+    // }
+    //std::string text = qrDecoder.decode(frame, point);
+    //printf("detected text: %s\n", text.c_str());
     std::string data = qrDecoder.detectAndDecode(frame);
     return data;
 }
@@ -440,7 +452,7 @@ void setup() {
                 sleepSeconds(3);
                 continue;
             }
-            printf("qr code detected: %s\n", qrContent);
+            printf("qr code detected: %s\n", qrContent.c_str());
             std::istringstream iss(qrContent);
             std::string line;
             while (std::getline(iss, line)) {
