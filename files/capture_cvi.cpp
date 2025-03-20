@@ -3830,10 +3830,6 @@ OUT:
 
         b_vi_frame_got = 0;
     }
-    //added by jj
-    // if (retain_image_ptr) {
-    //     printf("pointer address of image_ptr in capture_cvi.cpp: %p\n", image_ptr);
-    // }
     return ret_val;
 }
 

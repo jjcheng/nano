@@ -27,7 +27,6 @@
 #include <curl/curl.h>
 #include <sys/ioctl.h>
 #include <linux/if.h>
-#include <regex>
 
 // Custom includes
 #include "core/cvi_tdl_types_mem_internal.h"
@@ -35,7 +34,7 @@
 #include "cvi_tdl.h"
 #include "cvi_tdl_media.h"
 
-// Constants (using constexpr rather than #define)
+// Constants
 constexpr size_t BUFFER_SIZE = 4096;
 constexpr const char* WIFI_CONFIG_FILE_PATH = "/root/wifi_config";
 constexpr const char* SAVE_IMAGE_PATH = "/root/captured.jpg";
@@ -43,15 +42,15 @@ constexpr double CONF_THRESHOLD = 0.5;
 constexpr double IOU_THRESHOLD = 0.5;
 constexpr int NO_CHANGE_FRAME_LIMIT = 10;
 constexpr double CHANGE_THRESHOLD_PERCENT = 0.10;
-constexpr const char* INTERFACE_NAME = "wlan0";  // Change as needed
+constexpr const char* INTERFACE_NAME = "wlan0";
 
 // YOLO defines
 constexpr const char* MODEL_FILE_PATH = "/root/detect.cvimodel";
 constexpr int MODEL_CLASS_CNT = 3;  // underline, highlight, pen
-constexpr double MODEL_THRESH = 0.1;
-constexpr double MODEL_NMS_THRESH = 0.1;
-constexpr int INPUT_WIDTH = 320;
-constexpr int INPUT_HEIGHT = 320;
+constexpr double MODEL_THRESH = 0.5;
+constexpr double MODEL_NMS_THRESH = 0.5;
+constexpr int INPUT_FRAME_WIDTH = 320;
+constexpr int INPUT_FRAME_HEIGHT = 320;
 constexpr int MAX_FRAME_WIDTH = 2560;
 constexpr int MAX_FRAME_HEIGHT = 1440;
 
@@ -76,23 +75,9 @@ std::string trim(const std::string &s) {
     return (start == std::string::npos || end == std::string::npos) ? "" : s.substr(start, end - start + 1);
 }
 
-// Forward declarations
-bool connect();
-bool connectToWifi(const std::string& ssid, const std::string& password);
-std::string getIPAddress();
-HttpResponse httpGet(const std::string& url);
-HttpResponse postHttp(const std::string& url);
-std::string detectQR();
-void openCamera(int width, int height);
-bool connectToRemote();
-bool runSystemCommand(const std::string& command);
-void initModel();
-void sendImage();
-void sendErrorToRemote(const std::string& error);
-void loop();
-void cleanUp();
-void testDetect();
-void testCamera();
+void sleepSeconds(int seconds) {
+    std::this_thread::sleep_for(std::chrono::seconds(seconds));
+}
 
 // Signal handler (only sets flag)
 void interruptHandler(int signum) {
@@ -102,7 +87,6 @@ void interruptHandler(int signum) {
 
 // Clean up resources gracefully.
 void cleanUp() {
-    std::cout << "Cleaning up resources..." << std::endl;
     cap.release();
     if (tdl_handle != nullptr) {
         CVI_TDL_DestroyHandle(tdl_handle);
@@ -111,101 +95,9 @@ void cleanUp() {
     curl_global_cleanup();
 }
 
-// Read WiFi configuration file, parse key-value pairs, and attempt to connect.
-bool connect() {
-    std::string ssid, password;
-    bool isConnected = false;
-    
-    std::ifstream file(WIFI_CONFIG_FILE_PATH);
-    if (file) {
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        file.close();
-        std::stringstream ss(buffer.str());
-        std::string line;
-        while (std::getline(ss, line)) {
-            size_t pos = line.find(':');
-            if (pos != std::string::npos) {
-                std::string key = trim(line.substr(0, pos));
-                std::string value = trim(line.substr(pos + 1));
-                if (key == "remoteBaseUrl") {
-                    remoteBaseUrl = value;
-                }
-                else if (key == "ssid") {
-                    ssid = value;
-                }
-                else if (key == "password") {
-                    password = value;
-                }
-            }
-        }
-        // Try to connect using read credentials.
-        isConnected = connectToWifi(ssid, password);
-        isConnected = connectToRemote();
-    }
-    // If not connected, scan for QR code to get credentials.
-    if (!isConnected) {
-        openCamera(INPUT_WIDTH, INPUT_HEIGHT);
-        int qrTimes = 0;
-        while (!interrupted) {
-            qrTimes++;
-            if (qrTimes >= 5) {
-                sendErrorToRemote("Unable to detect WIFI QR Code");
-                return false;
-            }
-            std::string qrContent = detectQR();
-            if (qrContent.empty()) {
-                std::this_thread::sleep_for(std::chrono::seconds(3));
-                continue;
-            }
-            std::cout << "QR Content: " << qrContent << std::endl;
-            std::stringstream ss(qrContent);
-            std::string line;
-            while (std::getline(ss, line)) {
-                size_t pos = line.find(':');
-                if (pos != std::string::npos) {
-                    std::string key = trim(line.substr(0, pos));
-                    std::string value = trim(line.substr(pos + 1));
-                    if (key == "ssid") {
-                        ssid = value;
-                    } else if (key == "password") {
-                        password = value;
-                    } else if (key == "remoteBaseUrl") {
-                        remoteBaseUrl = value;
-                    }
-                }
-            }
-            if (ssid.empty() || password.empty() || remoteBaseUrl.empty()) {
-                continue;
-            }
-            if (!connectToWifi(ssid, password)) {
-                continue;
-            }
-            if (!connectToRemote()) {
-                continue;
-            }
-            break;
-        }
-    }
-    // Save configuration for future use.
-    if (!ssid.empty() && !password.empty() && !remoteBaseUrl.empty()) {
-        std::string wifiConfig = "ssid:" + ssid + "\npassword:" + password + "\nremoteBaseUrl:" + remoteBaseUrl;
-        std::ofstream newFile(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
-        if (newFile.is_open()) {
-            newFile << wifiConfig;
-            newFile.close();
-        } else {
-            //no need to treat it as error since all 3 variables are ready
-            std::cerr << "Unable to open file for writing: " << WIFI_CONFIG_FILE_PATH << std::endl;
-        }
-        return true;
-    }
-    return false;
-}
-
 // Use OpenCV's QRCodeDetector to detect and decode a QR code from the current frame.
 std::string detectQR() {
-    std::cout << "Detecting QR code..." << std::endl;
+    std::cout << "Detecting QR code" << std::endl;
     cv::Mat frame;
     cap >> frame;
     if (frame.empty()) return "";
@@ -216,39 +108,30 @@ std::string detectQR() {
 
 // Open the default camera and warm it up by skipping initial frames.
 void openCamera(int width, int height) {
+    int retries = 0;
     while (!interrupted && !cap.isOpened()) {
-        std::cout << "Opening camera..." << std::endl;
+        retries ++;
+        if (retries > 5) {
+            throw std::runtime_error("Failed to open camera after 5 tries");
+        }
         cap.set(cv::CAP_PROP_FRAME_WIDTH, width);
         cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
         cap.open(0);
         if (!cap.isOpened()) {
             std::cerr << "Failed to open camera; retrying in 3 seconds..." << std::endl;
-            std::this_thread::sleep_for(std::chrono::seconds(3));
+            sleepSeconds(3);
         } else {
             cv::Mat dummy;
             for (int i = 0; i < 15 && !interrupted; ++i)
                 cap >> dummy;
-            std::cout << "Camera opened successfully." << std::endl;
         }
     }
 }
 
-// Set camera resolution. If max==true, set to 2560x1440; otherwise, set to default INPUT dimensions.
-bool setCameraResolution(bool max) {
-    if (max) {
-        cap.set(cv::CAP_PROP_FRAME_WIDTH, MAX_FRAME_WIDTH);
-        cap.set(cv::CAP_PROP_FRAME_HEIGHT, MAX_FRAME_HEIGHT);
-    } else {
-        cap.set(cv::CAP_PROP_FRAME_WIDTH, INPUT_WIDTH);
-        cap.set(cv::CAP_PROP_FRAME_HEIGHT, INPUT_HEIGHT);
-    }
-    int width = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
-    int height = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
-    if (max && (width != MAX_FRAME_WIDTH || height != MAX_FRAME_HEIGHT))
-        return false;
-    if (!max && (width != INPUT_WIDTH || height != INPUT_HEIGHT))
-        return false;
-    return true;
+// Set camera resolution. TODO: to optimize
+void setCameraResolution(int width, int height) {
+    cap.release();
+    openCamera(width, height);
 }
 
 // Connect to WiFi using system commands via wpa_cli.
@@ -266,7 +149,6 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
     if (!runSystemCommand(cmd)) return false;
     std::string myIp = getIPAddress();
     if (!myIp.empty()) {
-        std::cout << "Connected with IP: " << myIp << std::endl;
         return true;
     }
     return false;
@@ -290,14 +172,19 @@ std::string getIPAddress() {
 bool connectToRemote() {
     std::string myIp = getIPAddress();
     std::string url = remoteBaseUrl + "/ping?ip=" + myIp;
-    std::cout << "Pinging remote URL: " << url << std::endl;
-    HttpResponse response = httpGet(url);
-    if (response.statusCode == 200) {
-        std::cout << "Remote connection successful." << std::endl;
-        return true;
-    } else {
-        std::cerr << "Remote connection failed." << std::endl;
-        return false;
+    int retries = 0;
+    while(!interrupted) {
+        retries++;
+        if(retries > 5) {
+            return false;
+        }
+        HttpResponse response = httpGet(url);
+        if (response.statusCode == 200) {
+            return true;
+        } else {
+            std::cerr << "Remote connection failed, retry after 3 seconds" << std::endl;
+            sleepSeconds(3);
+        }
     }
 }
 
@@ -363,91 +250,6 @@ HttpResponse httpPost(const std::string& url, const std::string& postBody) {
     return response;
 }
 
-// Main processing loop: compare frames and trigger detection if no significant change.
-void loop() {
-    int changedThreshold = 0;
-    int noChangeCount = 0;
-    cv::Mat previousNoChangeFrame;
-
-    openCamera(INPUT_WIDTH, INPUT_HEIGHT);
-    initModel();
-    
-    while (!interrupted) {
-        cv::Mat img;
-        //capture() mathod will return VIDEO_FRAME_INFO_S*
-        void* image_ptr = cap.capture(img);
-        if (img.empty()) {
-            cap.releaseImagePtr();
-            image_ptr = nullptr;
-            continue;
-        }
-        //resize to input 
-        // cv::Size newSize(INPUT_WIDTH, INPUT_HEIGHT);
-        // cv::Mat resizedImage;
-        // cv::resize(img, resizedImage, newSize);
-        int totalPixels = img.cols * img.rows;
-        if (image_ptr == nullptr) {
-            std::cerr << "main.cpp image_ptr is nullptr" << std::endl;
-            cap.releaseImagePtr();
-            continue;
-        }
-        if (changedThreshold == 0) {
-            changedThreshold = static_cast<int>(totalPixels * CHANGE_THRESHOLD_PERCENT);
-        }
-        cv::Mat grayFrame;
-        cv::cvtColor(img, grayFrame, cv::COLOR_BGR2GRAY);
-        if (previousNoChangeFrame.empty()) {
-            previousNoChangeFrame = grayFrame.clone();
-            cap.releaseImagePtr();
-            image_ptr = nullptr;
-            continue;
-        }
-        cv::Mat diff, thresh;
-        cv::absdiff(grayFrame, previousNoChangeFrame, diff);
-        cv::threshold(diff, thresh, 30, 255, cv::THRESH_BINARY);
-        int nonZeroCount = cv::countNonZero(thresh);
-        if (nonZeroCount < changedThreshold) {
-            noChangeCount++;
-            if (noChangeCount != NO_CHANGE_FRAME_LIMIT) {
-                continue;
-            }
-            std::cout << "No significant change detected." << std::endl;
-            //convert image_ptr to VIDEO_FRAME_INFO_S*
-            VIDEO_FRAME_INFO_S *frameInfo = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image_ptr);
-            if (frameInfo == nullptr) {
-                std::cerr << "frameInfo is nullptr" << std::endl;
-                cap.releaseImagePtr();
-                image_ptr = nullptr;
-                continue;
-            }
-            //std::cout << "Performing YOLO detection..." << std::endl;
-            cvtdl_object_t obj_meta = {0};
-            CVI_TDL_YOLOV8_Detection(tdl_handle, frameInfo, &obj_meta);
-            //release image_ptr
-            cap.releaseImagePtr();
-            image_ptr = nullptr;
-            frameInfo = nullptr;
-            //check for detections
-            if (obj_meta.size == 0) {
-                continue;
-            }
-            std::printf("Detected %d objects\n", obj_meta.size);
-            sendImage();
-            previousNoChangeFrame = grayFrame.clone();
-            continue;
-        } else {
-            int percent = static_cast<int>((static_cast<float>(nonZeroCount) / totalPixels) * 100);
-            std::cout << "Change detected: " << percent << "%" << std::endl;
-            previousNoChangeFrame = grayFrame.clone();
-            noChangeCount = 0;
-        }
-        cap.releaseImagePtr();
-        if (image_ptr) {
-            image_ptr = nullptr;
-        }
-    }
-}
-
 // Initialize the YOLOv8 model and set algorithm parameters.
 void initModel() {
     CVI_S32 ret = CVI_TDL_CreateHandle(&tdl_handle);
@@ -471,52 +273,26 @@ void initModel() {
 
 // Capture an image, encode it to JPEG, and send it via HTTP POST.
 void sendImage() {
-    std::cout << "Sending image to remote server..." << std::endl;
-    cap.release();
-    openCamera(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
-    // if (!setCameraResolution(true)) {
-    //     printf("failed to change resolution\n");
-    //     return;
-    // }
-    //wait for 1 seconds
-    //std::this_thread::sleep_for(std::chrono::seconds(1));
+    //std::cout << "Sending image to remote server..." << std::endl;
+    setCameraResolution(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
     cv::Mat frame;
     cap >> frame;
     if (frame.empty()) {
+        setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
         std::cerr << "Captured empty frame!" << std::endl;
-        //setCameraResolution(false);
-       //cap.release();
-        cap.release();
-        openCamera(INPUT_WIDTH, INPUT_HEIGHT);
         return;
     }
-    // Define JPEG compression parameters
-    // std::vector<int> compression_params;
-    // compression_params.push_back(cv::IMWRITE_JPEG_QUALITY);
-    // compression_params.push_back(100); // Quality level (0-100)
-    // // Save the image to a file
-    // if (cv::imwrite("/root/captured_image.jpg", frame)) {
-    //     std::cout << "Image saved successfully as 'captured_image.jpg'." << std::endl;
-    // } else {
-    //     std::cerr << "Error: Could not save the image." << std::endl;
-    // }
-    // setCameraResolution(false);
-    // return;
     std::vector<uchar> buffer;
     std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 100 };
     if (!cv::imencode(".jpg", frame, buffer, params)) {
+        setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
         std::cerr << "Failed to encode image." << std::endl;
-        //setCameraResolution(false);
-        cap.release();
-        openCamera(INPUT_WIDTH, INPUT_HEIGHT);
         return;
     }
     CURL* curl = curl_easy_init();
     if (!curl) {
+        setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
         std::cerr << "Failed to initialize libcurl" << std::endl;
-        //setCameraResolution(false);
-        cap.release();
-        openCamera(INPUT_WIDTH, INPUT_HEIGHT);
         return;
     }
     struct curl_slist* headers = nullptr;
@@ -537,9 +313,7 @@ void sendImage() {
     }
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
-    //setCameraResolution(false);
-    cap.release();
-    openCamera(INPUT_WIDTH, INPUT_HEIGHT);
+    setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
 }
 
 void sendErrorToRemote(const std::string& error) {
@@ -556,8 +330,8 @@ void sendErrorToRemote(const std::string& error) {
 
 // Test detection using a saved image (for debugging).
 void testDetect() {
-    CVI_S32 ret = MMF_INIT_HELPER2(INPUT_WIDTH, INPUT_HEIGHT, PIXEL_FORMAT_RGB_888, 1,
-                                   INPUT_WIDTH, INPUT_HEIGHT, PIXEL_FORMAT_RGB_888, 1);
+    CVI_S32 ret = MMF_INIT_HELPER2(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT, PIXEL_FORMAT_RGB_888, 1,
+                                   INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT, PIXEL_FORMAT_RGB_888, 1);
     if (ret != CVI_TDL_SUCCESS) {
         std::printf("Init sys failed with error %#x!\n", ret);
         return;
@@ -596,18 +370,18 @@ void testCamera() {
     initModel();
     while (!interrupted) {
         cv::Mat img;
-        cap >> img;
+        void* image_ptr = cap.capture(img);
         if (img.empty()) {
             std::printf("Empty image captured\n");
             continue;
         }
-        // WARNING: Unsafe reinterpret_cast—ensure image.data is compatible.
-        VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(img.data);
+        VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image_ptr);
         if (frame_ptr == nullptr) {
             std::printf("frame_ptr is nullptr\n");
             cap.release();
             return;
         }
+        cap.releaseImagePtr();
         std::printf("Detecting on camera frame...\n");
         cvtdl_object_t obj_meta = {0};
         CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
@@ -616,9 +390,173 @@ void testCamera() {
         } else {
             std::printf("No detection!\n");
         }
-        std::this_thread::sleep_for(std::chrono::seconds(3));
+        sleepSeconds(3);
     }
     cap.release();
+}
+
+// Read WiFi configuration file, parse key-value pairs, and attempt to connect.
+void setup() {
+    std::string ssid, password;
+    bool isConnected = false;
+    std::ifstream file(WIFI_CONFIG_FILE_PATH);
+    if (file) {
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        file.close();
+        std::istringstream ss(buffer.str());
+        std::string line;
+        while (std::getline(ss, line)) {
+            size_t pos = line.find(':');
+            if (pos != std::string::npos) {
+                std::string key = trim(line.substr(0, pos));
+                std::string value = trim(line.substr(pos + 1));
+                if (key == "remoteBaseUrl") {
+                    remoteBaseUrl = value;
+                }
+                else if (key == "ssid") {
+                    ssid = value;
+                }
+                else if (key == "password") {
+                    password = value;
+                }
+            }
+        }
+        // Try to connect using read credentials.
+        isConnected = connectToWifi(ssid, password) && connectToRemote();
+    }
+    // If not connected, scan for QR code to get credentials.
+    if (!isConnected) {
+        openCamera(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
+        int retries = 0;
+        while (!interrupted) {
+            retries++;
+            if (retries > 5) {
+                throw std::runtime_error("Unable to detect WIFI QR Code after 5 tries");
+            }
+            std::string qrContent = detectQR();
+            if (qrContent.empty()) {
+                sleepSeconds(3);
+                continue;
+            }
+            std::istringstream iss(qrContent);
+            std::string line;
+            while (std::getline(iss, line)) {
+                size_t pos = line.find(':');
+                if (pos != std::string::npos) {
+                    std::string key = trim(line.substr(0, pos));
+                    std::string value = trim(line.substr(pos + 1));
+                    if (key == "ssid") {
+                        ssid = value;
+                    } else if (key == "password") {
+                        password = value;
+                    } else if (key == "remoteBaseUrl") {
+                        remoteBaseUrl = value;
+                    }
+                }
+            }
+            if (ssid.empty() || password.empty() || remoteBaseUrl.empty()) {
+                continue;
+            }
+            if (!connectToWifi(ssid, password)) {
+                continue;
+            }
+            if (!connectToRemote()) {
+                continue;
+            }
+            break;
+        }
+    }
+    // now we have everything, save configuration to file
+    std::string wifiConfig = "ssid:" + ssid + "\npassword:" + password + "\nremoteBaseUrl:" + remoteBaseUrl;
+    std::ofstream newFile(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
+    if (newFile.is_open()) {
+        newFile << wifiConfig;
+        newFile.close();
+    } else {
+        //no need to treat it as error since all 3 variables are ready
+        std::cerr << "Unable to open file for writing: " << WIFI_CONFIG_FILE_PATH << std::endl;
+    }
+}
+
+// Main processing loop: compare frames and trigger detection if no significant change.
+void loop() {
+    int changedThreshold = 0;
+    int noChangeCount = 0;
+    int totalPixels = 0;
+    cv::Mat previousNoChangeFrame;
+
+    openCamera(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
+    initModel();
+    
+    while (!interrupted) {
+        cv::Mat img;
+        //capture() method will return VIDEO_FRAME_INFO_S*
+        void* image_ptr = cap.capture(img);
+        if (img.empty()) {
+            cap.releaseImagePtr();
+            image_ptr = nullptr;
+            continue;
+        }
+        if (image_ptr == nullptr) {
+            std::cerr << "main.cpp image_ptr is nullptr" << std::endl;
+            cap.releaseImagePtr();
+            continue;
+        }
+        if (totalPixels == 0) {
+            totalPixels = img.cols * img.rows;
+        }
+        if (changedThreshold == 0) {
+            changedThreshold = static_cast<int>(totalPixels * CHANGE_THRESHOLD_PERCENT);
+        }
+        cv::Mat grayFrame;
+        cv::cvtColor(img, grayFrame, cv::COLOR_BGR2GRAY);
+        if (previousNoChangeFrame.empty()) {
+            previousNoChangeFrame = grayFrame.clone();
+            cap.releaseImagePtr();
+            image_ptr = nullptr;
+            continue;
+        }
+        cv::Mat diff, thresh;
+        cv::absdiff(grayFrame, previousNoChangeFrame, diff);
+        cv::threshold(diff, thresh, 30, 255, cv::THRESH_BINARY);
+        int nonZeroCount = cv::countNonZero(thresh);
+        if (nonZeroCount < changedThreshold) {
+            noChangeCount++;
+            if (noChangeCount != NO_CHANGE_FRAME_LIMIT) {
+                cap.releaseImagePtr();
+                image_ptr = nullptr;
+                continue;
+            }
+            std::cout << "No significant change detected." << std::endl;
+            //convert image_ptr to VIDEO_FRAME_INFO_S*
+            VIDEO_FRAME_INFO_S *frameInfo = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image_ptr);
+            if (frameInfo == nullptr) {
+                std::cerr << "frameInfo is nullptr" << std::endl;
+                cap.releaseImagePtr();
+                image_ptr = nullptr;
+                continue;
+            }
+            cvtdl_object_t obj_meta = {0};
+            CVI_TDL_YOLOV8_Detection(tdl_handle, frameInfo, &obj_meta);
+            //release image_ptr
+            cap.releaseImagePtr();
+            image_ptr = nullptr;
+            //check for detections
+            if (obj_meta.size == 0) {
+                continue;
+            }
+            std::printf("Detected %d objects\n", obj_meta.size);
+            sendImage();
+        } else {
+            int percent = static_cast<int>((static_cast<float>(nonZeroCount) / totalPixels) * 100);
+            std::cout << "Change detected: " << percent << "%" << std::endl;
+            noChangeCount = 0;
+            cap.releaseImagePtr();
+            image_ptr = nullptr;
+        }
+        previousNoChangeFrame = grayFrame.clone();
+    }
 }
 
 int main() {
@@ -631,13 +569,12 @@ int main() {
         #ifdef NO_WIFI
             testCamera();
         #else 
-            if(connect()) {
-                loop();
-            }
+            setup();
+            loop();
         #endif
     } 
     catch (const std::exception& ex) {
-        std::cerr << "Fatal error: " << ex.what() << std::endl;
+        std::cerr << "FATAL ERROR: " << ex.what() << std::endl;
         sendErrorToRemote(ex.what());
         cleanUp();
         return EXIT_FAILURE;
