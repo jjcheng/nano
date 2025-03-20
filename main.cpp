@@ -440,6 +440,7 @@ void setup() {
                 sleepSeconds(3);
                 continue;
             }
+            printf("qr code detected: %s\n", qrContent);
             std::istringstream iss(qrContent);
             std::string line;
             while (std::getline(iss, line)) {
