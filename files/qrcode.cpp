@@ -167,15 +167,20 @@ void QRDetect::init(const Mat& src, double eps_vertical_, double eps_horizontal_
     eps_vertical   = eps_vertical_;
     eps_horizontal = eps_horizontal_;
 
+    std::printf("if (!barcode.empty())\n");
     if (!barcode.empty())
         adaptiveThreshold(barcode, bin_barcode, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 83, 2);
     else
         bin_barcode.release();
-
-    if (!resized_barcode.empty())
+    std::printf("if (!resized_barcode.empty())\n");
+    if (!resized_barcode.empty()) {
+        std::printf("adaptiveThreshold\n");
         adaptiveThreshold(resized_barcode, resized_bin_barcode, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 83, 2);
-    else
+    }
+    else {
+        std::printf("resized_bin_barcode.release()\n");
         resized_bin_barcode.release();
+    }
 }
 
 vector<Vec3d> QRDetect::searchHorizontalLines()

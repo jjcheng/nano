@@ -4172,18 +4172,21 @@ void cv::resize( InputArray _src, OutputArray _dst, Size dsize,
     std::printf("CV_OCL_RUN(_src.dims() <= 2 && _dst.isMat()\n");
     CV_OCL_RUN(_src.dims() <= 2 && _dst.isMat() && _src.cols() > 10 && _src.rows() > 10,
                ocl_resize(_src, _dst, dsize, inv_scale_x, inv_scale_y, interpolation))
-
+    std::printf("Mat src = _src.getMat();\n");
     Mat src = _src.getMat();
+    std::printf("_dst.create(dsize, src.type());\n");
     _dst.create(dsize, src.type());
+    std::printf("Mat dst = _dst.getMat();\n");
     Mat dst = _dst.getMat();
 
     if (dsize == ssize)
     {
+        std::printf("src.copyTo(dst);\n");
         // Source and destination are of same size. Use simple copy.
         src.copyTo(dst);
         return;
     }
-
+    std::printf("hal::resize(src.type(), src.data,\n");
     hal::resize(src.type(), src.data, src.step, src.cols, src.rows, dst.data, dst.step, dst.cols, dst.rows, inv_scale_x, inv_scale_y, interpolation);
 }
 
