@@ -1159,16 +1159,22 @@ float static getMinSideLen(const vector<Point2f> &points) {
 
 void QRDecode::init(const Mat &src, const vector<Point2f> &points)
 {
+    std::printf("CV_TRACE_FUNCTION\n");
     CV_TRACE_FUNCTION();
     vector<Point2f> bbox = points;
+    std::printf("original = src.clone();\n");
     original = src.clone();
+    std::printf("test_image = src.clone();\n");
     test_image = src.clone();
+    std::printf("adaptiveThreshold(original\n");
     adaptiveThreshold(original, bin_barcode, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 83, 2);
     intermediate = Mat::zeros(original.size(), CV_8UC1);
     original_points = bbox;
     version = 0;
     version_size = 0;
+    std::printf("test_perspective_size = max(getMin\n");
     test_perspective_size = max(getMinSideLen(points)+1.f, 251.f);
+    std::printf("result_info= ''\n");
     result_info = "";
 }
 
