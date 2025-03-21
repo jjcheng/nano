@@ -16,7 +16,12 @@ include_directories(
 )
 
 set(OpenCV_DIR "$ENV{SDK_PATH}/opencv-mobile-4.10.0/build/install/lib/cmake/opencv4")
+#set(OpenCV_DIR "$ENV{SDK_PATH}/opencv-mobile-4.10.0/build/install/include/opencv4/opencv2/opencv.hpp")
 set(CURL_LIBRARY "$ENV{SDK_PATH}/nano/files/libcurl.so")
+
+# Enable static linking for OpenCV
+set(OpenCV_STATIC ON)
+add_definitions(-DOPENCV_STATIC)
 
 find_package(OpenCV REQUIRED)
 find_package(CURL REQUIRED)
