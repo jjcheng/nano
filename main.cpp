@@ -57,7 +57,7 @@ constexpr int MAX_FRAME_HEIGHT = 1440;
 // Global variables
 std::string remoteBaseUrl = "";
 cv::VideoCapture cap;
-cv::QRCodeDetector qrDecoder;
+//cv::QRCodeDetector qrDecoder;
 cvitdl_handle_t tdl_handle = nullptr;
 
 // Use volatile sig_atomic_t for safe signal flag updates.
@@ -202,6 +202,7 @@ std::string detectQR() {
         // }
         //std::string text = qrDecoder.decode(frame, point);
         //printf("detected text: %s\n", text.c_str());
+        cv::QRCodeDetector qrDecoder;
         std::string data = qrDecoder.detectAndDecode(frame);
         if (data.empty()) {
             printf("NO QR Code Detected\n");
