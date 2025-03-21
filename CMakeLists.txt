@@ -13,14 +13,11 @@ include_directories(
     $ENV{SDK_PATH}/cvitek_tdl_sdk/include/cvi_tdl
     $ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include
     $ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include/linux
+    $ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include/isp/cv181x
 )
 
 set(OpenCV_DIR "$ENV{SDK_PATH}/opencv-mobile-4.10.0/build/install/lib/cmake/opencv4")
-#set(OpenCV_DIR "$ENV{SDK_PATH}/opencv-mobile-4.10.0/build/install/include/opencv4/opencv2/opencv.hpp")
 set(CURL_LIBRARY "$ENV{SDK_PATH}/nano/files/libcurl.so")
-
-set(OpenCV_STATIC ON)
-add_definitions(-DOPENCV_STATIC)
 
 find_package(OpenCV REQUIRED)
 find_package(CURL REQUIRED)
@@ -31,12 +28,12 @@ file(MAKE_DIRECTORY ${EXECUTABLE_OUTPUT_PATH})
 add_executable(Jotter main.cpp)
 
 target_link_libraries(Jotter
-    ${OpenCV_LIBS}
     -mcpu=c906fdv
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/lib
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/lib/3rd
     -lini -lsns_full -lsample -lisp -lvdec -lvenc -lawb -lae -laf -lcvi_bin -lcvi_bin_isp -lmisc -lisp_algo -lsys -lvpu
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/opencv/lib
+    -lopencv_core -lopencv_imgproc -lopencv_imgcodecs
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/tpu/lib
     -lcnpy -lcvikernel -lcvimath -lcviruntime -lz -lm
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/ive/lib
@@ -45,5 +42,6 @@ target_link_libraries(Jotter
     -lcvi_tdl
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/lib
     -lpthread -latomic
-    ${CURL_LIBRARIES}
+     ${CURL_LIBRARIES}
+     ${OpenCV_LIBS}
 )

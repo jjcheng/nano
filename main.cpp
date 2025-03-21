@@ -172,6 +172,18 @@ void cleanUp() {
     curl_global_cleanup();
 }
 
+void sendErrorToRemote(const std::string& error) {
+    std::string url = remoteBaseUrl + "/error";
+    std::string body = "{\"error\":\"" + error + "\"}";
+    HttpResponse response = httpPost(url, body);
+    if(response.statusCode == 200) {
+        std::cout << "Error message sent to remote" << std::endl;
+    }
+    else {
+        std::cerr << "Error sending error message to remote" << std::endl;
+    }
+}
+
 // Use OpenCV's QRCodeDetector to detect and decode a QR code from the current frame.
 std::string detectQR() {
     std::cout << "Detecting QR code" << std::endl;
@@ -180,23 +192,32 @@ std::string detectQR() {
     if (frame.empty()) return "";
     //cv::Mat frame = cv::imread("/root/qr.jpg");
     cv::Mat point;
-    bool detected = qrDecoder.detect(frame, point);
-    if (detected) {
-        printf("QR Code Detected\n");
+    try {
+        // bool detected = qrDecoder.detect(frame, point);
+        // if (detected) {
+        //     printf("QR Code Detected\n");
+        // }
+        // else {
+        //     printf("NO QR Code Detected\n");
+        // }
+        //std::string text = qrDecoder.decode(frame, point);
+        //printf("detected text: %s\n", text.c_str());
+        std::string data = qrDecoder.detectAndDecode(frame);
+        if (data.empty()) {
+            printf("NO QR Code Detected\n");
+        }
+        else {
+            printf("QR Code Detected: %s\n", data.c_str());
+        }
+        return data;
     }
-    else {
-        printf("NO QR Code Detected\n");
+    catch (const cv::Exception& ex) {
+        std::cerr << "detectQR error: " << ex.what() << std::endl;
+        sendErrorToRemote(ex.what());
+        cleanUp();
+        return "";
     }
-    //std::string text = qrDecoder.decode(frame, point);
-    //printf("detected text: %s\n", text.c_str());
-    std::string data = qrDecoder.detectAndDecode(frame);
-    // if (data.empty()) {
-    //     printf("NO QR Code Detected\n");
-    // }
-    // else {
-    //     printf("QR Code Detected\n");
-    // }
-    return data;
+    return "";
 }
 
 // Open the default camera and warm it up by skipping initial frames.
@@ -332,18 +353,6 @@ void sendImage() {
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
     setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
-}
-
-void sendErrorToRemote(const std::string& error) {
-    std::string url = remoteBaseUrl + "/error";
-    std::string body = "{\"error\":\"" + error + "\"}";
-    HttpResponse response = httpPost(url, body);
-    if(response.statusCode == 200) {
-        std::cout << "Error message sent to remote" << std::endl;
-    }
-    else {
-        std::cerr << "Error sending error message to remote" << std::endl;
-    }
 }
 
 // Test detection using a saved image (for debugging).
