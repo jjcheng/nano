@@ -106,6 +106,7 @@
     "memory_resource": "cpp",
     "stop_token": "cpp",
     "*.ipp": "cpp",
-    "*.inc": "cpp"
+    "*.inc": "cpp",
+    "hash_set": "cpp"
   }
 }

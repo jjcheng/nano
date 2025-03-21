@@ -131,17 +131,22 @@ protected:
 
 void QRDetect::init(const Mat& src, double eps_vertical_, double eps_horizontal_)
 {
+    std::printf("CV_TRACE_FUNCTION\n");
     CV_TRACE_FUNCTION();
     CV_Assert(!src.empty());
+    std::printf("barcode = src.clone();\n");
     barcode = src.clone();
+    std::printf("const double min_side = std::min(src.size().width, src.size().height);\n");
     const double min_side = std::min(src.size().width, src.size().height);
     if (min_side < 512.0)
     {
+        std::printf("purpose = ZOOMING;\n");
         purpose = ZOOMING;
         coeff_expansion = 512.0 / min_side;
         const int width  = cvRound(src.size().width  * coeff_expansion);
         const int height = cvRound(src.size().height  * coeff_expansion);
         Size new_size(width, height);
+        std::printf("resize(src, barcode, new_size, 0, 0, INTER_LINEAR_EXACT);\n");
         resize(src, barcode, new_size, 0, 0, INTER_LINEAR_EXACT);
     }
     else if (min_side > 512.0)
