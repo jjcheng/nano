@@ -3793,7 +3793,6 @@ void resize(int src_type,
     std::printf("static ResizeFunc linear_tab[] =\n");
     static ResizeFunc linear_tab[] =
     {
-        std::printf("resizeGeneric_<HResizeLinear<uchar,\n");
         resizeGeneric_<
             HResizeLinear<uchar, int, short,
                 INTER_RESIZE_COEF_SCALE,
