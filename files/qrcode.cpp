@@ -2992,7 +2992,7 @@ std::string ImplContour::decode(InputArray in, InputArray points, OutputArray st
     bool ok = qrdec.straightDecodingProcess();
     std::printf("qrdec.straightDecodingProcess()\n");
     std::string decoded_info = qrdec.getDecodeInformation();
-    std::printf("decoded info %d\n", decoded_info.c_str());
+    std::printf("decoded info %s\n", decoded_info.c_str());
     if (!ok && straight_qrcode.needed())
     {
         std::printf("!ok && straight_qrcode.needed()\n");

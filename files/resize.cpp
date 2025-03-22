@@ -3770,26 +3770,30 @@ void resize(int src_type,
             uchar * dst_data, size_t dst_step, int dst_width, int dst_height,
             double inv_scale_x, double inv_scale_y, int interpolation)
 {
+    std::printf("CV_INSTRUMENT_REGION();\n");
     CV_INSTRUMENT_REGION();
-
+    std::printf("CV_Assert((dst_width > 0 && dst_height > 0) \n");
     CV_Assert((dst_width > 0 && dst_height > 0) || (inv_scale_x > 0 && inv_scale_y > 0));
     if (inv_scale_x < DBL_EPSILON || inv_scale_y < DBL_EPSILON)
     {
         inv_scale_x = static_cast<double>(dst_width) / src_width;
         inv_scale_y = static_cast<double>(dst_height) / src_height;
     }
-
+    std::printf("CALL_HAL(resize, cv_hal_resize\n");
     CALL_HAL(resize, cv_hal_resize, src_type, src_data, src_step, src_width, src_height, dst_data, dst_step, dst_width, dst_height, inv_scale_x, inv_scale_y, interpolation);
-
+    std::printf("int  depth = CV_MAT_DEPTH(src_type)\n");
     int  depth = CV_MAT_DEPTH(src_type), cn = CV_MAT_CN(src_type);
+    std::printf("Size dsize = Size(saturate_cast<int>\n");
     Size dsize = Size(saturate_cast<int>(src_width*inv_scale_x),
                         saturate_cast<int>(src_height*inv_scale_y));
+    std::printf("CV_Assert( !dsize.empty() );\n");
     CV_Assert( !dsize.empty() );
-
+    std::printf("CV_IPP_RUN_FAST(ipp_resize(src_data, src_step\n");
     CV_IPP_RUN_FAST(ipp_resize(src_data, src_step, src_width, src_height, dst_data, dst_step, dsize.width, dsize.height, inv_scale_x, inv_scale_y, depth, cn, interpolation))
-
+    std::printf("static ResizeFunc linear_tab[] =\n");
     static ResizeFunc linear_tab[] =
     {
+        std::printf("resizeGeneric_<HResizeLinear<uchar,\n");
         resizeGeneric_<
             HResizeLinear<uchar, int, short,
                 INTER_RESIZE_COEF_SCALE,
@@ -3903,16 +3907,17 @@ void resize(int src_type,
         0,
         0
     };
-
+    std::printf("double scale_x = 1./inv_scale_x, scale_y = 1./inv_scale_y;");
     double scale_x = 1./inv_scale_x, scale_y = 1./inv_scale_y;
 
     int iscale_x = saturate_cast<int>(scale_x);
     int iscale_y = saturate_cast<int>(scale_y);
-
+    std::printf("bool is_area_fast = std::abs(scale_x -");
     bool is_area_fast = std::abs(scale_x - iscale_x) < DBL_EPSILON &&
             std::abs(scale_y - iscale_y) < DBL_EPSILON;
-
+    std::printf("Mat src(Size(src_width, src_height), src\n");
     Mat src(Size(src_width, src_height), src_type, const_cast<uchar*>(src_data), src_step);
+    std::printf("Mat dst(dsize, src_type, dst_data, dst_step);\n");
     Mat dst(dsize, src_type, dst_data, dst_step);
 
     if (interpolation == INTER_LINEAR_EXACT)
@@ -3923,6 +3928,7 @@ void resize(int src_type,
             interpolation = INTER_AREA;
         else
         {
+            std::printf("be_resize_func func = linear_exact_tab[depth];\n");
             be_resize_func func = linear_exact_tab[depth];
             CV_Assert(func != 0);
             func(src_data, src_step, src_width, src_height,
@@ -3934,12 +3940,14 @@ void resize(int src_type,
 
     if( interpolation == INTER_NEAREST )
     {
+        std::printf("resizeNN( src, dst, inv_scale_x, inv_scale_y );\n");
         resizeNN( src, dst, inv_scale_x, inv_scale_y );
         return;
     }
 
     if( interpolation == INTER_NEAREST_EXACT )
     {
+        std::printf("resizeNN_bitexact( src, dst, inv_scale_x, inv_scale_y );\n");
         resizeNN_bitexact( src, dst, inv_scale_x, inv_scale_y );
         return;
     }
@@ -3959,14 +3967,16 @@ void resize(int src_type,
         {
             if( is_area_fast )
             {
+                std::printf("int area = iscale_x*iscale_y;\n");
                 int area = iscale_x*iscale_y;
                 size_t srcstep = src_step / src.elemSize1();
                 AutoBuffer<int> _ofs(area + dsize.width*cn);
                 int* ofs = _ofs.data();
                 int* xofs = ofs + area;
                 ResizeAreaFastFunc func = areafast_tab[depth];
+                std::printf("CV_Assert( func != 0 );\n");
                 CV_Assert( func != 0 );
-
+                std::printf("for( sy = 0, k = 0; sy < iscale_y; sy++ )\n");
                 for( sy = 0, k = 0; sy < iscale_y; sy++ )
                     for( sx = 0; sx < iscale_x; sx++ )
                         ofs[k++] = (int)(sy*srcstep + sx*cn);
@@ -3978,17 +3988,17 @@ void resize(int src_type,
                     for( k = 0; k < cn; k++ )
                         xofs[j + k] = sx + k;
                 }
-
+                std::printf("func( src, dst, ofs, xofs, iscale_x, iscale_y );\n");
                 func( src, dst, ofs, xofs, iscale_x, iscale_y );
                 return;
             }
 
             ResizeAreaFunc func = area_tab[depth];
             CV_Assert( func != 0 && cn <= 4 );
-
+            std::printf("AutoBuffer<DecimateAlpha> _xytab((src_width + src_height)*2);\n");
             AutoBuffer<DecimateAlpha> _xytab((src_width + src_height)*2);
             DecimateAlpha* xtab = _xytab.data(), *ytab = xtab + src_width*2;
-
+            std::printf("int xtab_size = computeResizeAreaTab(src_width, dsize.width, cn, scale_x, xtab);\n");
             int xtab_size = computeResizeAreaTab(src_width, dsize.width, cn, scale_x, xtab);
             int ytab_size = computeResizeAreaTab(src_height, dsize.height, 1, scale_y, ytab);
 
@@ -4003,7 +4013,7 @@ void resize(int src_type,
                 }
             }
             tabofs[dy] = ytab_size;
-
+            std::printf("func( src, dst, xtab, xtab_size, ytab, ytab_size, tabofs );\n");
             func( src, dst, xtab, xtab_size, ytab, ytab_size, tabofs );
             return;
         }
