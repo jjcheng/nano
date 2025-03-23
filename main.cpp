@@ -29,10 +29,10 @@
 #include <linux/if.h>
 
 // Custom includes
-#include "core/cvi_tdl_types_mem_internal.h"
-#include "core/utils/vpss_helper.h"
+//#include "core/cvi_tdl_types_mem_internal.h"
+//#include "core/utils/vpss_helper.h"
 #include "cvi_tdl.h"
-#include "cvi_tdl_media.h"
+//#include "cvi_tdl_media.h"
 
 // Constants
 constexpr size_t BUFFER_SIZE = 4096;
@@ -358,38 +358,38 @@ void sendImage() {
 
 // Test detection using a saved image (for debugging).
 void testDetect() {
-    CVI_S32 ret = MMF_INIT_HELPER2(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT, PIXEL_FORMAT_RGB_888, 1,
-                                   INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT, PIXEL_FORMAT_RGB_888, 1);
-    if (ret != CVI_TDL_SUCCESS) {
-        std::printf("Init sys failed with error %#x!\n", ret);
-        return;
-    }
-    initModel();
-    std::vector<uchar> imgData;
-    std::string imagePath = "/root/test.jpg";
-    cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
-    if (!cv::imencode(".jpg", image, imgData)) {
-        std::cerr << "Error: Could not encode image!" << std::endl;
-        return;
-    }
-    std::printf("Converting Mat to frame pointer...\n");
-    if (image.data == nullptr) {
-        std::printf("image.data is nullptr\n");
-        return;
-    }
-    VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image.data);
-    if (frame_ptr == nullptr) {
-        std::printf("frame_ptr is nullptr\n");
-        return;
-    }
-    cvtdl_object_t obj_meta = {0};
-    std::printf("Detecting...\n");
-    CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
-    if (obj_meta.size == 0) {
-        std::printf("No detection found!\n");
-    } else {
-        std::printf("Detection found!\n");
-    }
+    // CVI_S32 ret = MMF_INIT_HELPER2(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT, PIXEL_FORMAT_RGB_888, 1,
+    //                                INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT, PIXEL_FORMAT_RGB_888, 1);
+    // if (ret != CVI_TDL_SUCCESS) {
+    //     std::printf("Init sys failed with error %#x!\n", ret);
+    //     return;
+    // }
+    // initModel();
+    // std::vector<uchar> imgData;
+    // std::string imagePath = "/root/test.jpg";
+    // cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
+    // if (!cv::imencode(".jpg", image, imgData)) {
+    //     std::cerr << "Error: Could not encode image!" << std::endl;
+    //     return;
+    // }
+    // std::printf("Converting Mat to frame pointer...\n");
+    // if (image.data == nullptr) {
+    //     std::printf("image.data is nullptr\n");
+    //     return;
+    // }
+    // VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image.data);
+    // if (frame_ptr == nullptr) {
+    //     std::printf("frame_ptr is nullptr\n");
+    //     return;
+    // }
+    // cvtdl_object_t obj_meta = {0};
+    // std::printf("Detecting...\n");
+    // CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
+    // if (obj_meta.size == 0) {
+    //     std::printf("No detection found!\n");
+    // } else {
+    //     std::printf("Detection found!\n");
+    // }
 }
 
 // Test camera capture and detection continuously (for debugging).
