@@ -32,8 +32,8 @@ target_link_libraries(Jotter
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/lib
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/lib/3rd
     -lini -lsns_full -lsample -lisp -lvdec -lvenc -lawb -lae -laf -lcvi_bin -lcvi_bin_isp -lmisc -lisp_algo -lsys -lvpu
-    -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/opencv/lib
-    -lopencv_core -lopencv_imgproc -lopencv_imgcodecs
+    # -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/opencv/lib
+    # -lopencv_core -lopencv_imgproc -lopencv_imgcodecs
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/tpu/lib
     -lcnpy -lcvikernel -lcvimath -lcviruntime -lz -lm
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/ive/lib
