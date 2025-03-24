@@ -29,10 +29,7 @@
 #include <linux/if.h>
 
 // Custom includes
-//#include "core/cvi_tdl_types_mem_internal.h"
-//#include "core/utils/vpss_helper.h"
 #include "cvi_tdl.h"
-//#include "cvi_tdl_media.h"
 
 // Constants
 constexpr size_t BUFFER_SIZE = 4096;
@@ -57,7 +54,7 @@ constexpr int MAX_FRAME_HEIGHT = 1440;
 // Global variables
 std::string remoteBaseUrl = "";
 cv::VideoCapture cap;
-//cv::QRCodeDetector qrDecoder;
+cv::QRCodeDetector qrDecoder;
 cvitdl_handle_t tdl_handle = nullptr;
 
 // Use volatile sig_atomic_t for safe signal flag updates.
@@ -202,7 +199,7 @@ std::string detectQR() {
         // }
         //std::string text = qrDecoder.decode(frame, point);
         //printf("detected text: %s\n", text.c_str());
-        cv::QRCodeDetector qrDecoder;
+        //cv::QRCodeDetector qrDecoder;
         std::string data = qrDecoder.detectAndDecode(frame);
         if (data.empty()) {
             printf("NO QR Code Detected\n");
@@ -291,17 +288,53 @@ bool connectToRemote() {
 }
 
 // Initialize the YOLOv8 model and set algorithm parameters.
+// void initModel() {
+//     CVI_S32 ret = CVI_TDL_CreateHandle(&tdl_handle);
+//     if (ret != CVI_SUCCESS) {
+//         throw std::runtime_error("Create TDL handle failed with error code: " + std::to_string(ret));
+//     }
+//     // Setup YOLO algorithm parameters.
+//     YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
+//     yolov8_param.cls = MODEL_CLASS_CNT;
+//     ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
+//     if (ret != CVI_SUCCESS) {
+//         throw std::runtime_error("Failed to set YOLOv8 algorithm parameters: " + std::to_string(ret));
+//     }
+//     CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_THRESH);
+//     CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_NMS_THRESH);
+//     ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_FILE_PATH);
+//     if (ret != CVI_SUCCESS) {
+//         throw std::runtime_error("Open model failed with error code: " + std::to_string(ret));
+//     }
+// }
+
+// Initialize the YOLOv8 model and set algorithm parameters.
 void initModel() {
     CVI_S32 ret = CVI_TDL_CreateHandle(&tdl_handle);
     if (ret != CVI_SUCCESS) {
         throw std::runtime_error("Create TDL handle failed with error code: " + std::to_string(ret));
     }
-    // Setup YOLO algorithm parameters.
-    YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
-    yolov8_param.cls = MODEL_CLASS_CNT;
-    ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
+    // setup preprocess
+    InputPreParam preprocess_cfg = CVI_TDL_GetPreParam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
+    for (int i = 0; i < 3; i++) {
+      printf("asign val %d \n", i);
+      preprocess_cfg.factor[i] = 0.003922;
+      preprocess_cfg.mean[i] = 0.0;
+    }
+    preprocess_cfg.format = PIXEL_FORMAT_RGB_888_PLANAR;
+    printf("setup yolov8 param \n");
+    ret = CVI_TDL_SetPreParam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, preprocess_cfg);
     if (ret != CVI_SUCCESS) {
-        throw std::runtime_error("Failed to set YOLOv8 algorithm parameters: " + std::to_string(ret));
+        std::ostringstream errorMsg;
+        throw std::runtime_error("Can not set yolov8 preprocess parameters" + std::to_string(ret));
+    }
+    // setup yolo algorithm preprocess
+    cvtdl_det_algo_param_t yolov8_param = CVI_TDL_GetDetectionAlgoParam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
+    yolov8_param.cls = MODEL_CLASS_CNT;
+    printf("setup yolov8 algorithm param \n");
+    ret = CVI_TDL_SetDetectionAlgoParam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
+    if (ret != CVI_SUCCESS) {
+      throw std::runtime_error("Can not set yolov8 algorithm parameters" + std::to_string(ret));
     }
     CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_THRESH);
     CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_NMS_THRESH);
@@ -412,7 +445,8 @@ void testCamera() {
         cap.releaseImagePtr();
         std::printf("Detecting on camera frame...\n");
         cvtdl_object_t obj_meta = {0};
-        CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
+        //CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
+        CVI_TDL_Detection(tdl_handle, frame_ptr, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, &obj_meta);
         if (obj_meta.size > 0) {
             std::printf("Detection found!\n");
         } else {
@@ -567,7 +601,8 @@ void loop() {
                 continue;
             }
             cvtdl_object_t obj_meta = {0};
-            CVI_TDL_YOLOV8_Detection(tdl_handle, frameInfo, &obj_meta);
+            //CVI_TDL_YOLOV8_Detection(tdl_handle, frameInfo, &obj_meta);
+            CVI_TDL_Detection(tdl_handle, frameInfo, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, &obj_meta);
             //release image_ptr
             cap.releaseImagePtr();
             image_ptr = nullptr;
