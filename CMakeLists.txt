@@ -11,7 +11,7 @@ set(CMAKE_CXX_FLAGS "-march=rv64imafd -O3 -DNDEBUG -D_MIDDLEWARE_V2_ -DC906 -DUS
 include_directories(
     $ENV{SDK_PATH}/cvitek_tdl_sdk/include
     $ENV{SDK_PATH}/cvitek_tdl_sdk/include/cvi_tdl
-    #$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include
+    $ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include
     #$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include/linux
     #$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/include/isp/cv181x
 )
@@ -29,19 +29,18 @@ add_executable(Jotter main.cpp)
 
 target_link_libraries(Jotter
     -mcpu=c906fdv
-    #-L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/lib
-    #-L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/lib/3rd
-    #-lini -lsns_full -lsample -lisp -lvdec -lvenc -lawb -lae -laf -lcvi_bin -lcvi_bin_isp -lmisc -lisp_algo -lsys -lvpu
+    -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/lib
+    -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/middleware/v2/lib/3rd
+    -lini -lsns_full -lsample -lisp -lvdec -lvenc -lawb -lae -laf -lcvi_bin -lcvi_bin_isp -lmisc -lisp_algo -lsys -lvpu
     # -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/opencv/lib
     # -lopencv_core -lopencv_imgproc -lopencv_imgcodecs
-    #-L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/tpu/lib
-    #-lcnpy -lcvikernel -lcvimath -lcviruntime -lz -lm
-    #-L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/ive/lib
-    #-lcvi_ive_tpu
+    -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/tpu/lib
+    -lcnpy -lcvikernel -lcvimath -lcviruntime -lz -lm
+    -L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/ive/lib
+    -lcvi_ive_tpu
     -L$ENV{SDK_PATH}/cvitek_tdl_sdk/lib
     -lcvi_tdl
-    #-L$ENV{SDK_PATH}/cvitek_tdl_sdk/sample/3rd/lib
     -lpthread -latomic
-     ${CURL_LIBRARIES}
-     ${OpenCV_LIBS}
+    ${CURL_LIBRARIES}
+    ${OpenCV_LIBS}
 )
