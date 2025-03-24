@@ -28,6 +28,9 @@ Thanks for Stephan for the fix in flatbuffers!
     sudo apt install ninja-build
     sudo apt install pkg-config
     sudo apt install unzip
+    sudo apt install mtools
+    sudo apt install zip
+    sudo apt install genext2fs
 12. cd tdl_sdk
 13. edit CMakeLists.txt -> add `set(NO_OPENCV ON)` and `add_definitions(-DUSE_NEON)`
 14. edit build_tdl_sdk.sh `USE_TPU_IVE=OFF` -> `USE_TPU_IVE=ON`
@@ -42,3 +45,7 @@ Thanks for Stephan for the fix in flatbuffers!
 #fi`
 21. clean_all
 22. build_all
+23. build_middleware; pack_rootfs
+24. look for /install/upgrade.zip f
+25. pack_burn_image
+26. look for sophpi-duo-xxx.img
