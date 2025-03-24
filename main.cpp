@@ -27,6 +27,11 @@
 #include <curl/curl.h>
 #include <sys/ioctl.h>
 #include <linux/if.h>
+#include <iostream>
+#include <sstream>
+#include <cstdlib>
+#include <future>
+#include <thread>
 
 // Custom includes
 #include "cvi_tdl.h"
@@ -187,19 +192,8 @@ std::string detectQR() {
     cv::Mat frame;
     cap >> frame;
     if (frame.empty()) return "";
-    //cv::Mat frame = cv::imread("/root/qr.jpg");
     cv::Mat point;
     try {
-        // bool detected = qrDecoder.detect(frame, point);
-        // if (detected) {
-        //     printf("QR Code Detected\n");
-        // }
-        // else {
-        //     printf("NO QR Code Detected\n");
-        // }
-        //std::string text = qrDecoder.decode(frame, point);
-        //printf("detected text: %s\n", text.c_str());
-        //cv::QRCodeDetector qrDecoder;
         std::string data = qrDecoder.detectAndDecode(frame);
         if (data.empty()) {
             printf("NO QR Code Detected\n");
@@ -246,24 +240,57 @@ void setCameraResolution(int width, int height) {
     openCamera(width, height);
 }
 
-// Connect to WiFi using system commands via wpa_cli.
-bool connectToWifi(const std::string& ssid, const std::string& password) {
-    std::cout << "Connecting to WiFi network: " << ssid << std::endl;
-    std::string cmd = "wpa_cli -i wlan0 add_network";
-    if (!runSystemCommand(cmd)) return false;
-    cmd = "wpa_cli -i wlan0 set_network 0 ssid '\"" + ssid + "\"'";
-    if (!runSystemCommand(cmd)) return false;
-    cmd = "wpa_cli -i wlan0 set_network 0 psk '\"" + password + "\"'";
-    if (!runSystemCommand(cmd)) return false;
-    cmd = "wpa_cli -i wlan0 enable_network 0";
-    if (!runSystemCommand(cmd)) return false;
-    cmd = "wpa_cli -i wlan0 save_config";
-    if (!runSystemCommand(cmd)) return false;
-    std::string myIp = getIPAddress();
-    if (!myIp.empty()) {
-        return true;
+// Get currently connected ssid
+std::string getConnectedSSID() {
+    std::string cmd = "iw dev " + std::string(INTERFACE_NAME) + " link | grep SSID | awk '{print substr($0, index($0,$2))}'";
+    char buffer[128];
+    std::string result;
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        std::cerr << "Error: Failed to run command" << std::endl;
+        return "";
     }
-    return false;
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        result += buffer;
+    }
+    pclose(pipe);
+    // Trim any trailing newline or spaces
+    result.erase(result.find_last_not_of(" \n\r\t") + 1);
+    return result.empty() ? "" : result;
+}
+
+// Connect to WiFi using system commands via wpa_cli
+bool connectToWifi(const std::string& ssid, const std::string& password) {
+    // check if is already connected to ssid, don't try to connect again
+    std::string connectedSSID = getConnectedSSID();
+    if(connectedSSID == ssid) {
+        std::string ip = getIPAddress();
+        if (!ip.empty()) {
+            printf("already connected to %s with ip %s\n", ssid.c_str(), ip.c_str());
+            return true;
+        }
+    }
+    // Step 1: Create WPA Supplicant Configuration File
+    std::ofstream configFile("/etc/wpa_supplicant.conf");
+    if (!configFile) {
+        std::cerr << "Error: Unable to write /etc/wpa_supplicant.conf" << std::endl;
+        return false;
+    }
+    configFile << "ctrl_interface=/var/run/wpa_supplicant\n"
+               << "network={\n"
+               << "    ssid=\"" << ssid << "\"\n"
+               << "    psk=\"" << password << "\"\n"
+               << "    key_mgmt=WPA-PSK\n"
+               << "}\n";
+    configFile.close();
+    // Step 2: Start WPA Supplicant
+    std::string cmd = "wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant.conf";
+    if (system(cmd.c_str()) != 0) {
+        std::cerr << "Error: Failed to start wpa_supplicant" << std::endl;
+        return false;
+    }
+    // Step 3: Obtain IP Address
+    return getIPAddress() != "";
 }
 
 // Connect to a remote server by sending a ping request.
@@ -273,7 +300,7 @@ bool connectToRemote() {
     int retries = 0;
     while(!interrupted) {
         retries++;
-        if(retries > 5) {
+        if(retries > 10) {
             return false;
         }
         HttpResponse response = httpGet(url);
@@ -317,12 +344,10 @@ void initModel() {
     // setup preprocess
     InputPreParam preprocess_cfg = CVI_TDL_GetPreParam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
     for (int i = 0; i < 3; i++) {
-      printf("asign val %d \n", i);
       preprocess_cfg.factor[i] = 0.003922;
       preprocess_cfg.mean[i] = 0.0;
     }
     preprocess_cfg.format = PIXEL_FORMAT_RGB_888_PLANAR;
-    printf("setup yolov8 param \n");
     ret = CVI_TDL_SetPreParam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, preprocess_cfg);
     if (ret != CVI_SUCCESS) {
         std::ostringstream errorMsg;
@@ -331,7 +356,6 @@ void initModel() {
     // setup yolo algorithm preprocess
     cvtdl_det_algo_param_t yolov8_param = CVI_TDL_GetDetectionAlgoParam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
     yolov8_param.cls = MODEL_CLASS_CNT;
-    printf("setup yolov8 algorithm param \n");
     ret = CVI_TDL_SetDetectionAlgoParam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
     if (ret != CVI_SUCCESS) {
       throw std::runtime_error("Can not set yolov8 algorithm parameters" + std::to_string(ret));
@@ -347,6 +371,7 @@ void initModel() {
 // Capture an image, encode it to JPEG, and send it via HTTP POST.
 void sendImage() {
     //std::cout << "Sending image to remote server..." << std::endl;
+    printf("expand to max resolution\n");
     setCameraResolution(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
     cv::Mat frame;
     cap >> frame;
@@ -355,19 +380,21 @@ void sendImage() {
         std::cerr << "Captured empty frame!" << std::endl;
         return;
     }
+    printf("switch back to low resolution\n");
+    std::async(std::launch::async, setCameraResolution, INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
+    printf("processing image\n");
     std::vector<uchar> buffer;
     std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 100 };
     if (!cv::imencode(".jpg", frame, buffer, params)) {
-        setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
         std::cerr << "Failed to encode image." << std::endl;
         return;
     }
     CURL* curl = curl_easy_init();
     if (!curl) {
-        setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
         std::cerr << "Failed to initialize libcurl" << std::endl;
         return;
     }
+    printf("sending image now\n");
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/octet-stream");
     std::string url = remoteBaseUrl + "/upload";
@@ -386,7 +413,6 @@ void sendImage() {
     }
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
-    setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
 }
 
 // Test detection using a saved image (for debugging).
@@ -427,34 +453,33 @@ void testDetect() {
 
 // Test camera capture and detection continuously (for debugging).
 void testCamera() {
-    //openCamera();
-    initModel();
-    while (!interrupted) {
-        cv::Mat img;
-        void* image_ptr = cap.capture(img);
-        if (img.empty()) {
-            std::printf("Empty image captured\n");
-            continue;
-        }
-        VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image_ptr);
-        if (frame_ptr == nullptr) {
-            std::printf("frame_ptr is nullptr\n");
-            cap.release();
-            return;
-        }
-        cap.releaseImagePtr();
-        std::printf("Detecting on camera frame...\n");
-        cvtdl_object_t obj_meta = {0};
-        //CVI_TDL_YOLOV8_Detection(tdl_handle, frame_ptr, &obj_meta);
-        CVI_TDL_Detection(tdl_handle, frame_ptr, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, &obj_meta);
-        if (obj_meta.size > 0) {
-            std::printf("Detection found!\n");
-        } else {
-            std::printf("No detection!\n");
-        }
-        sleepSeconds(3);
-    }
-    cap.release();
+    openCamera(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
+    // initModel();
+    // while (!interrupted) {
+    //     cv::Mat img;
+    //     void* image_ptr = cap.capture(img);
+    //     if (img.empty()) {
+    //         std::printf("Empty image captured\n");
+    //         continue;
+    //     }
+    //     VIDEO_FRAME_INFO_S* frame_ptr = reinterpret_cast<VIDEO_FRAME_INFO_S*>(image_ptr);
+    //     if (frame_ptr == nullptr) {
+    //         std::printf("frame_ptr is nullptr\n");
+    //         cap.release();
+    //         return;
+    //     }
+    //     cap.releaseImagePtr();
+    //     std::printf("Detecting on camera frame...\n");
+    //     cvtdl_object_t obj_meta = {0};
+    //     CVI_TDL_Detection(tdl_handle, frame_ptr, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, &obj_meta);
+    //     if (obj_meta.size > 0) {
+    //         std::printf("Detection found!\n");
+    //     } else {
+    //         std::printf("No detection!\n");
+    //     }
+    //     sleepSeconds(3);
+    // }
+    // cap.release();
 }
 
 // Read WiFi configuration file, parse key-value pairs, and attempt to connect.
@@ -485,7 +510,14 @@ void setup() {
             }
         }
         // Try to connect using read credentials.
-        isConnected = connectToWifi(ssid, password) && connectToRemote();
+        isConnected = connectToWifi(ssid, password);
+        if (isConnected) {
+            printf("connected to wifi\n");
+            isConnected = connectToRemote();
+            if (isConnected) {
+                printf("connected to remote\n");
+            }
+        }
     }
     // If not connected, scan for QR code to get credentials.
     if (!isConnected) {
@@ -493,8 +525,8 @@ void setup() {
         int retries = 0;
         while (!interrupted) {
             retries++;
-            if (retries > 5) {
-                throw std::runtime_error("Unable to detect WIFI QR Code after 5 tries");
+            if (retries > 10) {
+                throw std::runtime_error("Unable to detect WIFI QR Code after 10 tries");
             }
             std::string qrContent = detectQR();
             if (qrContent.empty()) {
