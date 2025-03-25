@@ -235,10 +235,10 @@ void openCamera(int width, int height) {
 }
 
 // Set camera resolution. TODO: to optimize
-// void setCameraResolution(int width, int height) {
-//     cap.release();
-//     openCamera(width, height);
-// }
+void setCameraResolution(int width, int height) {
+    cap.release();
+    openCamera(width, height);
+}
 
 // Get currently connected ssid
 std::string getConnectedSSID() {
@@ -372,19 +372,16 @@ void initModel() {
 void sendImage() {
     //std::cout << "Sending image to remote server..." << std::endl;
     printf("expand to max resolution\n");
-    //setCameraResolution(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
+    setCameraResolution(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
     cv::Mat frame;
-    //cap >> frame;
-    void* image_ptr = cap.capture(frame, true);
+    cap >> frame;
     if (frame.empty()) {
-        //setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
+        setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
         std::cerr << "Captured empty frame!" << std::endl;
         return;
     }
-    cap.releaseImagePtr();
-    image_ptr = nullptr;
-    //printf("switch back to low resolution\n");
-    //std::async(std::launch::async, setCameraResolution, INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
+    printf("switch back to low resolution\n");
+    std::async(std::launch::async, setCameraResolution, INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
     printf("processing image\n");
     std::vector<uchar> buffer;
     std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 100 };
@@ -590,7 +587,7 @@ void loop() {
     while (!interrupted) {
         cv::Mat img;
         //capture() method will return VIDEO_FRAME_INFO_S*
-        void* image_ptr = cap.capture(img, false);
+        void* image_ptr = cap.capture(img);
         if (img.empty()) {
             cap.releaseImagePtr();
             image_ptr = nullptr;

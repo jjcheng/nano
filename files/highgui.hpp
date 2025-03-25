@@ -88,7 +88,7 @@ public:
     VideoCapture& operator>>(Mat& bgr_image);
 
     //added by jj
-    void* capture(Mat& image, bool returnFullRes); //return image_ptr
+    void* capture(Mat& image); //return image_ptr
     //added by jj
     void releaseImagePtr(); //release image_ptr
 

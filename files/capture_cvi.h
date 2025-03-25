@@ -39,7 +39,9 @@ public:
     int start_streaming();
 
     //modified by jj
-    int read_frame(unsigned char* bgrdata, bool returnFullRes, bool retain_image_ptr);
+    int read_frame(unsigned char* bgrdata, bool retain_image_ptr);
+
+    //void get_pipe_frame(unsigned char* bgrdata);
 
     int stop_streaming();
 
