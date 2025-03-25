@@ -243,9 +243,9 @@ void VideoCapture::release()
 }
 
 //added by jj
-void VideoCapture::capture(Mat& image) {
+std::pair<void*, void*> VideoCapture::capture(Mat& image) {
     if (!d->is_opened)
-        return;
+        return {};
 
 #if CV_WITH_AW
     if (capture_v4l2_aw_isp::supported())
@@ -270,7 +270,9 @@ void VideoCapture::capture(Mat& image) {
     {
         image.create(d->height, d->width, CV_8UC3);
         d->cap_cvi.read_frame((unsigned char*)image.data, true);
-        //return d->cap_cvi.getImagePtr();
+        void* image_ptr = d->cap_cvi.getImagePtr();
+        void* original_image_ptr = d->cap_cvi.getOriginalImagePtr();
+        return std::make_pair(image_ptr, original_image_ptr);
     }
     else
 #endif
@@ -285,27 +287,7 @@ void VideoCapture::capture(Mat& image) {
 #endif
     {
     }
-    return;
-}
-
-//added by jj, return full rez image
-// int VideoCapture::getPipeFrame(Mat& image) {
-//     return d->cap_cvi.get_pipe_frame((unsigned char*)image.data);
-// }
-
-// //added by jj, release image ptr
-// void VideoCapture::releaseImagePtr() {
-//     #if CV_WITH_CVI
-//     d->cap_cvi.releaseImagePtr();
-//     #endif
-// }
-
-void* VideoCapture::getImagePtr() {
-    return d->cap_cvi.getImagePtr();
-}
-
-void* VideoCapture::getOriginalImagePtr() {
-    return d->cap_cvi.getOriginalImagePtr();
+    return {};
 }
 
 void VideoCapture::releaseImagePtr() {

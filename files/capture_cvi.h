@@ -41,8 +41,6 @@ public:
     //modified by jj
     int read_frame(unsigned char* bgrdata, bool retain_image_ptr);
 
-    int get_pipe_frame(unsigned char* bgrdata);
-
     int stop_streaming();
 
     int close();

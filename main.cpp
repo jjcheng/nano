@@ -353,7 +353,7 @@ void sendImage() {
     //printf("expand to max resolution\n");
     //setCameraResolution(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
     cv::Mat frame;
-    cap.capture(frame);
+    std::pair<void*, void> imagePtrs = cap.capture(frame);
     //cap.getPipeFrame(frame);
     if (frame.empty()) {
         //setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
@@ -364,12 +364,12 @@ void sendImage() {
     // printf("switch back to low resolution\n");
     // std::async(std::launch::async, setCameraResolution, INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
     printf("processing image\n");
-    void* original_image_ptr = cap.getOriginalImagePtr();
-    if (original_image_ptr == nullptr) {
-        printf("sengImage() original_image_ptr is nullptr\n");
-        cap.relaseImagePtr();
+    if (imagePtrs.second == nullptr) {
+        printf("sengImage() imagePtrs.second is nullptr\n");
+        cap.releaseImagePtr();
         return;
     }
+    void* original_image_ptr = imagePtrs.second;
     VIDEO_FRAME_INFO_S *frameInfo = reinterpret_cast<VIDEO_FRAME_INFO_S*>(original_image_ptr);
     if (frameInfo == nullptr) {
         std::cerr << "sendImage() frameInfo is nullptr" << std::endl;
@@ -582,17 +582,17 @@ void loop() {
     while (!interrupted) {
         cv::Mat img;
         //capture() method will set image_ptr and original_image_ptr
-        cap.capture(img);
+        std::pair<void*, void*> imagePtrs = cap.capture(img);
         if (img.empty()) {
             cap.releaseImagePtr();
             continue;
         }
-        void* image_ptr = cap.getImagePtr();
-        if (image_ptr == nullptr) {
-            std::cerr << "main.cpp image_ptr is nullptr" << std::endl;
+        if (imagePtrs.first == nullptr) {
+            std::cerr << "main.cpp imagePtrs.first is nullptr" << std::endl;
             cap.releaseImagePtr();
             continue;
         }
+        void* image_ptr = imagePtrs.first;
         if (totalPixels == 0) {
             totalPixels = img.cols * img.rows;
         }
@@ -628,9 +628,7 @@ void loop() {
                 continue;
             }
             cvtdl_object_t obj_meta = {0};
-            //CVI_TDL_YOLOV8_Detection(tdl_handle, frameInfo, &obj_meta);
             CVI_TDL_Detection(tdl_handle, frameInfo, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, &obj_meta);
-            //release image_ptr
             cap.releaseImagePtr();
             image_ptr = nullptr;
             //check for detections
