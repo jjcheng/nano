@@ -269,7 +269,7 @@ void* VideoCapture::capture(Mat& image, bool returnFullRes) {
     if (capture_cvi::supported())
     {
         image.create(d->height, d->width, CV_8UC3);
-        d->cap_cvi.read_frame((unsigned char*)image.data, returnFullRes,true);
+        d->cap_cvi.read_frame((unsigned char*)image.data, returnFullRes, true);
         return d->cap_cvi.getImagePtr();
     }
     else
@@ -323,7 +323,7 @@ VideoCapture& VideoCapture::operator>>(Mat& image)
     {
         image.create(d->height, d->width, CV_8UC3);
 
-        d->cap_cvi.read_frame((unsigned char*)image.data, false);
+        d->cap_cvi.read_frame((unsigned char*)image.data, false, false);
     }
     else
 #endif
