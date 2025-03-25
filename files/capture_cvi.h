@@ -49,13 +49,14 @@ public:
 
     //added by jj
     void* getImagePtr();
-    //added by jj
+    void* getOriginalImagePtr();
     void releaseImagePtr();
 
 private:
     capture_cvi_impl* const d;
     //added by jj
     void* image_ptr;
+    void* original_image_ptr;
 };
 
 } // namespace cv

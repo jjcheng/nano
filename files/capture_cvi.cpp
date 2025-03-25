@@ -696,6 +696,19 @@ typedef struct _VIDEO_FRAME_INFO_S {
     CVI_U32 u32PoolId;
 } VIDEO_FRAME_INFO_S;
 
+typedef enum _VI_DUMP_TYPE_E {
+   VI_DUMP_TYPE_RAW = 0,
+   VI_DUMP_TYPE_YUV = 1,
+   VI_DUMP_TYPE_IR = 2,
+   VI_DUMP_TYPE_BUTT
+} VI_DUMP_TYPE_E;
+
+typedef struct _VI_DUMP_ATTR_S {
+   CVI_BOOL bEnable; /* RW;Whether dump is enable */
+   CVI_U32 u32Depth; /* RW;Range [0,8];Depth */
+   VI_DUMP_TYPE_E enDumpType;
+} VI_DUMP_ATTR_S;
+
 typedef CVI_S32 (*PFN_CVI_VI_SetDevAttr)(VI_DEV ViDev, const VI_DEV_ATTR_S *pstDevAttr);
 typedef CVI_S32 (*PFN_CVI_VI_EnableDev)(VI_DEV ViDev);
 typedef CVI_S32 (*PFN_CVI_VI_DisableDev)(VI_DEV ViDev);
@@ -712,6 +725,7 @@ typedef CVI_S32 (*PFN_CVI_VI_DisableChn)(VI_PIPE ViPipe, VI_CHN ViChn);
 typedef CVI_S32 (*PFN_CVI_VI_SetChnCrop)(VI_PIPE ViPipe, VI_CHN ViChn, const VI_CROP_INFO_S  *pstCropInfo);
 typedef CVI_S32 (*PFN_CVI_VI_GetChnFrame)(VI_PIPE ViPipe, VI_CHN ViChn, VIDEO_FRAME_INFO_S *pstFrameInfo, CVI_S32 s32MilliSec);
 typedef CVI_S32 (*PFN_CVI_VI_GetPipeFrame)(VI_PIPE ViPipe, VIDEO_FRAME_INFO_S *pstFrameInfo, CVI_S32 s32MilliSec);
+typedef CVI_S32 (*PFN_CVI_VI_SetPipeDumpAttr)(VI_PIPE ViPipe, const VI_DUMP_ATTR_S *pstDumpAttr);
 typedef CVI_S32 (*PFN_CVI_VI_ReleaseChnFrame)(VI_PIPE ViPipe, VI_CHN ViChn, const VIDEO_FRAME_INFO_S *pstFrameInfo);
 typedef CVI_S32 (*PFN_CVI_VI_ReleasePipeFrame)(VI_PIPE ViPipe, const VIDEO_FRAME_INFO_S *pstVideoFrame);
 }
@@ -844,6 +858,7 @@ static PFN_CVI_VI_DisableChn CVI_VI_DisableChn = 0;
 static PFN_CVI_VI_SetChnCrop CVI_VI_SetChnCrop = 0;
 static PFN_CVI_VI_GetChnFrame CVI_VI_GetChnFrame = 0;
 static PFN_CVI_VI_GetPipeFrame CVI_VI_GetPipeFrame = 0;
+static PFN_CVI_VI_SetPipeDumpAttr CVI_VI_SetPipeDumpAttr = 0;
 static PFN_CVI_VI_ReleaseChnFrame CVI_VI_ReleaseChnFrame = 0;
 static PFN_CVI_VI_ReleasePipeFrame CVI_VI_ReleasePipeFrame = 0;
 
@@ -930,6 +945,7 @@ static int unload_vpu_library()
     CVI_VI_SetChnCrop = 0;
     CVI_VI_GetChnFrame = 0;
     CVI_VI_GetPipeFrame = 0;
+    CVI_VI_SetPipeDumpAttr = 0;
     CVI_VI_ReleaseChnFrame = 0;
     CVI_VI_ReleasePipeFrame = 0;
 
@@ -1069,6 +1085,7 @@ static int load_vpu_library()
     CVI_VI_SetChnCrop = (PFN_CVI_VI_SetChnCrop)dlsym(libvpu, "CVI_VI_SetChnCrop");
     CVI_VI_GetChnFrame = (PFN_CVI_VI_GetChnFrame)dlsym(libvpu, "CVI_VI_GetChnFrame");
     CVI_VI_GetPipeFrame = (PFN_CVI_VI_GetPipeFrame)dlsym(libvpu, "CVI_VI_GetPipeFrame");
+    CVI_VI_SetPipeDumpAttr = (PFN_CVI_VI_SetPipeDumpAttr)dlsym(libvpu, "CVI_VI_SetPipeDumpAttr");
     CVI_VI_ReleaseChnFrame = (PFN_CVI_VI_ReleaseChnFrame)dlsym(libvpu, "CVI_VI_ReleaseChnFrame");
     CVI_VI_ReleasePipeFrame = (PFN_CVI_VI_ReleasePipeFrame)dlsym(libvpu, "CVI_VI_ReleasePipeFrame");
 
@@ -2666,7 +2683,8 @@ public:
 
     //added by jj
     void* getImagePtr();
-    void releaseImagePtr();
+    void* getOriginalImagePtr();
+    void releaseImagePtr(); //will release image_ptr as well as original_image_ptr
 
 public:
     int crop_width;
@@ -2728,6 +2746,7 @@ public:
 private:
     //added by jj
     void* image_ptr;
+    void* original_image_ptr;
 };
 
 capture_cvi_impl::capture_cvi_impl()
@@ -2781,6 +2800,7 @@ capture_cvi_impl::capture_cvi_impl()
     VpssChn = VPSS_CHN0;
     //added by jj
     image_ptr = nullptr;
+    original_image_ptr = nullptr;
 }
 
 capture_cvi_impl::~capture_cvi_impl()
@@ -3666,8 +3686,19 @@ OUT:
 
 //added by jj
 int capture_cvi_impl::get_pipe_frame(unsigned char* bgrdata) {
+    VI_DUMP_ATTR_S myDumpAttr;
+    myDumpAttr.bEnable = CVI_TRUE;
+    myDumpAttr.u32Depth = 4;
+    myDumpAttr.enDumpType = VI_DUMP_TYPE_RAW;
+
+    CVI_S32 ret = CVI_VI_SetPipeDumpAttr(ViPipe, &myDumpAttr);
+    if(ret != CVI_SUCCESS) {
+        fprintf(stderr, "CVI_VI_SetPipeDumpAttr failed %x\n", ret);
+        return -1;
+    }
+
     VIDEO_FRAME_INFO_S frameInfo;
-    CVI_S32 ret = CVI_VI_GetPipeFrame(ViPipe, &frameInfo, 2000);
+    ret = CVI_VI_GetPipeFrame(ViPipe, &frameInfo, 2000);
     if(ret != CVI_SUCCESS) {
         fprintf(stderr, "CVI_VI_GetPipeFrame failed %x\n", ret);
         return -1;
@@ -3743,8 +3774,12 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
             ret_val = -1;
             goto OUT;
         }
-
         b_vi_frame_got = 1;
+        if (retain_image_ptr)
+        {
+            original_image_ptr = new VIDEO_FRAME_INFO_S;
+            memcpy(original_image_ptr, &stFrameInfo, sizeof(VIDEO_FRAME_INFO_S));
+        } 
     }
 
     if (0)
@@ -3883,9 +3918,7 @@ OUT:
         {
             image_ptr = new VIDEO_FRAME_INFO_S;
             memcpy(image_ptr, &stFrameInfo_bgr, sizeof(VIDEO_FRAME_INFO_S));
-            //printf("pointer address of image_ptr in capture_cvi.cpp: %p\n", image_ptr);
-        }        
-
+        }
         CVI_S32 ret = CVI_VPSS_ReleaseChnFrame(VpssGrp, VpssChn, &stFrameInfo_bgr);
         if (ret != CVI_SUCCESS)
         {
@@ -3915,11 +3948,18 @@ void* capture_cvi_impl::getImagePtr() {
     return image_ptr;
 }
 
-//added by jj
+void* capture_cvi_impl::getOriginalImagePtr() {
+    return original_image_ptr;
+}
+
 void capture_cvi_impl::releaseImagePtr() {
     if(image_ptr) {
         free(image_ptr);
         image_ptr = nullptr;
+    }
+    if(original_image_ptr) {
+        free(original_image_ptr);
+        original_image_ptr = nullptr;
     }
 }
 
@@ -4358,7 +4398,10 @@ void* capture_cvi::getImagePtr() {
     return d->getImagePtr();
 }
 
-//added by jj
+void* capture_cvi::getOriginalImagePtr() {
+    return d->getOriginalImagePtr();
+}
+
 void capture_cvi::releaseImagePtr() {
     d->releaseImagePtr();
 }

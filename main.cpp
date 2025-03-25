@@ -315,27 +315,6 @@ bool connectToRemote() {
 }
 
 // Initialize the YOLOv8 model and set algorithm parameters.
-// void initModel() {
-//     CVI_S32 ret = CVI_TDL_CreateHandle(&tdl_handle);
-//     if (ret != CVI_SUCCESS) {
-//         throw std::runtime_error("Create TDL handle failed with error code: " + std::to_string(ret));
-//     }
-//     // Setup YOLO algorithm parameters.
-//     YoloAlgParam yolov8_param = CVI_TDL_Get_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION);
-//     yolov8_param.cls = MODEL_CLASS_CNT;
-//     ret = CVI_TDL_Set_YOLO_Algparam(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, yolov8_param);
-//     if (ret != CVI_SUCCESS) {
-//         throw std::runtime_error("Failed to set YOLOv8 algorithm parameters: " + std::to_string(ret));
-//     }
-//     CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_THRESH);
-//     CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_NMS_THRESH);
-//     ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_FILE_PATH);
-//     if (ret != CVI_SUCCESS) {
-//         throw std::runtime_error("Open model failed with error code: " + std::to_string(ret));
-//     }
-// }
-
-// Initialize the YOLOv8 model and set algorithm parameters.
 void initModel() {
     CVI_S32 ret = CVI_TDL_CreateHandle(&tdl_handle);
     if (ret != CVI_SUCCESS) {
@@ -371,19 +350,34 @@ void initModel() {
 // Capture an image, encode it to JPEG, and send it via HTTP POST.
 void sendImage() {
     //std::cout << "Sending image to remote server..." << std::endl;
-    printf("expand to max resolution\n");
+    //printf("expand to max resolution\n");
     //setCameraResolution(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
     cv::Mat frame;
-    //cap >> frame;
-    cap.getPipeFrame(&frame);
+    cap.capture(frame);
+    //cap.getPipeFrame(frame);
     if (frame.empty()) {
-        setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
+        //setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
+        cap.releaseImagePtr();
         std::cerr << "Captured empty frame!" << std::endl;
         return;
     }
-    printf("switch back to low resolution\n");
-    std::async(std::launch::async, setCameraResolution, INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
+    // printf("switch back to low resolution\n");
+    // std::async(std::launch::async, setCameraResolution, INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
     printf("processing image\n");
+    void* original_image_ptr = cap.getOriginalImagePtr();
+    if (original_image_ptr == nullptr) {
+        printf("sengImage() original_image_ptr is nullptr\n");
+        cap.relaseImagePtr();
+        return;
+    }
+    VIDEO_FRAME_INFO_S *frameInfo = reinterpret_cast<VIDEO_FRAME_INFO_S*>(original_image_ptr);
+    if (frameInfo == nullptr) {
+        std::cerr << "sendImage() frameInfo is nullptr" << std::endl;
+        cap.releaseImagePtr();
+        original_image_ptr = nullptr;
+        return;
+    }
+    //TODO: convert 
     std::vector<uchar> buffer;
     std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 100 };
     if (!cv::imencode(".jpg", frame, buffer, params)) {
@@ -587,13 +581,13 @@ void loop() {
     
     while (!interrupted) {
         cv::Mat img;
-        //capture() method will return VIDEO_FRAME_INFO_S*
-        void* image_ptr = cap.capture(img);
+        //capture() method will set image_ptr and original_image_ptr
+        cap.capture(img);
         if (img.empty()) {
             cap.releaseImagePtr();
-            image_ptr = nullptr;
             continue;
         }
+        void* image_ptr = cap.getImagePtr();
         if (image_ptr == nullptr) {
             std::cerr << "main.cpp image_ptr is nullptr" << std::endl;
             cap.releaseImagePtr();

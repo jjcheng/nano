@@ -88,9 +88,12 @@ public:
     VideoCapture& operator>>(Mat& bgr_image);
 
     //added by jj
-    void* capture(Mat& image); //return image_ptr
-    int getPipeFrame(Mat& image); //get full res image
-    void releaseImagePtr(); //release image_ptr
+    void capture(Mat& image);
+    // int getPipeFrame(Mat& image); //get full res image
+    // void releaseImagePtr(); //release image_ptr
+    void* getImagePtr();
+    void* getOriginalImagePtr();
+    void releaseImagePtr();
 
     bool set(int propId, double value);
 

@@ -242,10 +242,10 @@ void VideoCapture::release()
     d->fps = 30;
 }
 
-//added by jj, this method returns VIDEO_FRAME_INFO_S
-void* VideoCapture::capture(Mat& image) {
+//added by jj
+void VideoCapture::capture(Mat& image) {
     if (!d->is_opened)
-        return nullptr;
+        return;
 
 #if CV_WITH_AW
     if (capture_v4l2_aw_isp::supported())
@@ -270,7 +270,7 @@ void* VideoCapture::capture(Mat& image) {
     {
         image.create(d->height, d->width, CV_8UC3);
         d->cap_cvi.read_frame((unsigned char*)image.data, true);
-        return d->cap_cvi.getImagePtr();
+        //return d->cap_cvi.getImagePtr();
     }
     else
 #endif
@@ -285,19 +285,31 @@ void* VideoCapture::capture(Mat& image) {
 #endif
     {
     }
-    return nullptr;
+    return;
 }
 
 //added by jj, return full rez image
-int VideoCapture::getPipeFrame(Mat& image) {
-    return d->cap_cvi.get_pipe_frame((unsigned char*)image.data);
+// int VideoCapture::getPipeFrame(Mat& image) {
+//     return d->cap_cvi.get_pipe_frame((unsigned char*)image.data);
+// }
+
+// //added by jj, release image ptr
+// void VideoCapture::releaseImagePtr() {
+//     #if CV_WITH_CVI
+//     d->cap_cvi.releaseImagePtr();
+//     #endif
+// }
+
+void* VideoCapture::getImagePtr() {
+    return d->cap_cvi.getImagePtr();
 }
 
-//added by jj, release image ptr
+void* VideoCapture::getOriginalImagePtr() {
+    return d->cap_cvi.getOriginalImagePtr();
+}
+
 void VideoCapture::releaseImagePtr() {
-    #if CV_WITH_CVI
-    d->cap_cvi.releaseImagePtr();
-    #endif
+    return d->cap_cvi.releaseImagePtr();
 }
 
 VideoCapture& VideoCapture::operator>>(Mat& image)
