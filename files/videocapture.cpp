@@ -243,7 +243,7 @@ void VideoCapture::release()
 }
 
 //added by jj, this method returns VIDEO_FRAME_INFO_S
-void* VideoCapture::capture(Mat& image) {
+void* VideoCapture::capture(Mat& image, bool returnFullRes) {
     if (!d->is_opened)
         return nullptr;
 
@@ -269,7 +269,7 @@ void* VideoCapture::capture(Mat& image) {
     if (capture_cvi::supported())
     {
         image.create(d->height, d->width, CV_8UC3);
-        d->cap_cvi.read_frame((unsigned char*)image.data, true);
+        d->cap_cvi.read_frame((unsigned char*)image.data, returnFullRes,true);
         return d->cap_cvi.getImagePtr();
     }
     else

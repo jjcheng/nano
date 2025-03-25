@@ -2647,7 +2647,7 @@ public:
 
     int start_streaming();
 
-    int read_frame(unsigned char* bgrdata, bool retain_image_ptr);
+    int read_frame(unsigned char* bgrdata, bool returnFullRes, bool retain_image_ptr);
 
     int stop_streaming();
 
@@ -3653,11 +3653,11 @@ OUT:
 }
 
 //modified by jj
-int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
+int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool returnFullRes, bool retain_image_ptr)
 {
     int ret_val = 0;
 
-    // vi get frame
+    // vi get frame, it's always in full res
     {
         CVI_S32 ret = CVI_VI_GetChnFrame(ViPipe, ViChn, &stFrameInfo, 2000);
         if (ret != CVI_SUCCESS)
@@ -3673,9 +3673,10 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
     if (1)
     {
         // dump
+        printf("DUMP stFrameInfo.stVFrame\n");
         VIDEO_FRAME_S& vf = stFrameInfo.stVFrame;
-        fprintf(stderr, "vf u32Width = %u\n", vf.u32Width);
-        fprintf(stderr, "vf u32Height = %u\n", vf.u32Height);
+        fprintf(stderr, "vf u32Width = %u\n", vf.u32Width); //2560
+        fprintf(stderr, "vf u32Height = %u\n", vf.u32Height); //1440
         fprintf(stderr, "vf enPixelFormat = %d\n", vf.enPixelFormat);
         fprintf(stderr, "vf enBayerFormat = %d\n", vf.enBayerFormat);
         fprintf(stderr, "vf enVideoFormat = %d\n", vf.enVideoFormat);
@@ -3694,7 +3695,64 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
         fprintf(stderr, "vf u32FrameFlag = %u\n", vf.u32FrameFlag);
     }
 
-    // vpss send frame
+    if (returnFullRes) {
+        //do not send it to vpss to crop
+        const VIDEO_FRAME_S& vf = stFrameInfo.stVFrame;
+
+        // memcpy Y/BGR
+        CVI_U64 phyaddr = vf.u64PhyAddr[0];
+        // const unsigned char* ptr = vf.pu8VirAddr[0];
+        const int stride = vf.u32Stride[0];
+        const int length = vf.u32Length[0];
+
+        const int border_top = vf.s16OffsetTop;
+        // const int border_bottom = vf.s16OffsetBottom;
+        const int border_left = vf.s16OffsetLeft;
+        // const int border_right = vf.s16OffsetRight;
+
+        // fprintf(stderr, "border %d %d %d %d\n", border_top, border_bottom, border_left, border_right);
+
+        void* mapped_ptr = CVI_SYS_MmapCache(phyaddr, length);
+        //CVI_SYS_IonInvalidateCache(phyaddr, mapped_ptr, length);
+
+        const unsigned char* ptr = (const unsigned char*)mapped_ptr + border_top * stride + border_left;
+
+        // copy to bgrdata
+        int h2 = output_height;
+        int w2 = output_width * 3;
+        if (stride == output_width * 3)
+        {
+            h2 = 1;
+            w2 = output_height * output_width * 3;
+        }
+
+        for (int i = 0; i < h2; i++)
+        {
+#if __riscv_vector
+            int j = 0;
+            int n = w2;
+            while (n > 0) {
+                size_t vl = vsetvl_e8m8(n);
+                vuint8m8_t bgr = vle8_v_u8m8(ptr + j, vl);
+                vse8_v_u8m8(bgrdata, bgr, vl);
+                bgrdata += vl;
+                j += vl;
+                n -= vl;
+            }
+#else
+            memcpy(bgrdata, ptr, w2);
+            bgrdata += w2;
+#endif
+
+            ptr += stride;
+        }
+
+        CVI_SYS_Munmap(mapped_ptr, length);
+        b_vpss_frame_got = 1;
+        goto OUT;
+    }
+
+    // vpss send frame, send original (full res) image to vpss channel to process
     {
         CVI_S32 ret = CVI_VPSS_SendFrame(VpssGrp, &stFrameInfo, -1);
         if (ret != CVI_SUCCESS)
@@ -3705,7 +3763,7 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
         }
     }
 
-    // vpss get frame
+    // vpss get frame, get processed image from vpss channel, data is stored in stFrameInfo_bgr
     {
         CVI_S32 ret = CVI_VPSS_GetChnFrame(VpssGrp, VpssChn, &stFrameInfo_bgr, 2000);
         if (ret != CVI_SUCCESS)
@@ -3721,6 +3779,7 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
     if (1)
     {
         // dump
+        printf("DUMP stFrameInfo_bgr.stVFrame\n");
         VIDEO_FRAME_S& vf = stFrameInfo_bgr.stVFrame;
         fprintf(stderr, "vf u32Width = %u\n", vf.u32Width);
         fprintf(stderr, "vf u32Height = %u\n", vf.u32Height);
@@ -3809,11 +3868,13 @@ OUT:
             //printf("pointer address of image_ptr in capture_cvi.cpp: %p\n", image_ptr);
         }        
 
-        CVI_S32 ret = CVI_VPSS_ReleaseChnFrame(VpssGrp, VpssChn, &stFrameInfo_bgr);
-        if (ret != CVI_SUCCESS)
-        {
-            fprintf(stderr, "CVI_VPSS_ReleaseChnFrame failed %x\n", ret);
-            ret_val = -1;
+        if (!returnFullRes) {
+            CVI_S32 ret = CVI_VPSS_ReleaseChnFrame(VpssGrp, VpssChn, &stFrameInfo_bgr);
+            if (ret != CVI_SUCCESS)
+            {
+                fprintf(stderr, "CVI_VPSS_ReleaseChnFrame failed %x\n", ret);
+                ret_val = -1;
+            }
         }
 
         b_vpss_frame_got = 0;
@@ -4267,9 +4328,9 @@ int capture_cvi::start_streaming()
 }
 
 //added by jj
-int capture_cvi::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
+int capture_cvi::read_frame(unsigned char* bgrdata, bool returnFullRes, bool retain_image_ptr)
 {
-    return d->read_frame(bgrdata, retain_image_ptr);
+    return d->read_frame(bgrdata, returnFullRes, retain_image_ptr);
 }
 
 //added by jj
