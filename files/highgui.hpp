@@ -89,7 +89,7 @@ public:
 
     //added by jj
     void* capture(Mat& image); //return image_ptr
-    //added by jj
+    int getPipeFrame(Mat& image); //get full res image
     void releaseImagePtr(); //release image_ptr
 
     bool set(int propId, double value);

@@ -372,9 +372,10 @@ void initModel() {
 void sendImage() {
     //std::cout << "Sending image to remote server..." << std::endl;
     printf("expand to max resolution\n");
-    setCameraResolution(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
+    //setCameraResolution(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
     cv::Mat frame;
-    cap >> frame;
+    //cap >> frame;
+    cap.getPipeFrame(&frame);
     if (frame.empty()) {
         setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
         std::cerr << "Captured empty frame!" << std::endl;

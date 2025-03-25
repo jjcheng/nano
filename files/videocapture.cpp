@@ -288,7 +288,12 @@ void* VideoCapture::capture(Mat& image) {
     return nullptr;
 }
 
-//added by jj
+//added by jj, return full rez image
+int VideoCapture::getPipeFrame(Mat& image) {
+    return d->cap_cvi.get_pipe_frame((unsigned char*)image.data);
+}
+
+//added by jj, release image ptr
 void VideoCapture::releaseImagePtr() {
     #if CV_WITH_CVI
     d->cap_cvi.releaseImagePtr();

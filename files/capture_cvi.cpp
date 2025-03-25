@@ -711,7 +711,9 @@ typedef CVI_S32 (*PFN_CVI_VI_EnableChn)(VI_PIPE ViPipe, VI_CHN ViChn);
 typedef CVI_S32 (*PFN_CVI_VI_DisableChn)(VI_PIPE ViPipe, VI_CHN ViChn);
 typedef CVI_S32 (*PFN_CVI_VI_SetChnCrop)(VI_PIPE ViPipe, VI_CHN ViChn, const VI_CROP_INFO_S  *pstCropInfo);
 typedef CVI_S32 (*PFN_CVI_VI_GetChnFrame)(VI_PIPE ViPipe, VI_CHN ViChn, VIDEO_FRAME_INFO_S *pstFrameInfo, CVI_S32 s32MilliSec);
+typedef CVI_S32 (*PFN_CVI_VI_GetPipeFrame)(VI_PIPE ViPipe, VIDEO_FRAME_INFO_S *pstFrameInfo, CVI_S32 s32MilliSec);
 typedef CVI_S32 (*PFN_CVI_VI_ReleaseChnFrame)(VI_PIPE ViPipe, VI_CHN ViChn, const VIDEO_FRAME_INFO_S *pstFrameInfo);
+typedef CVI_S32 (*PFN_CVI_VI_ReleasePipeFrame)(VI_PIPE ViPipe, const VIDEO_FRAME_INFO_S *pstVideoFrame);
 }
 
 extern "C"
@@ -806,6 +808,7 @@ typedef CVI_S32 (*PFN_CVI_VPSS_EnableChn)(VPSS_GRP VpssGrp, VPSS_CHN VpssChn);
 typedef CVI_S32 (*PFN_CVI_VPSS_GetChnAttr)(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, VPSS_CHN_ATTR_S* pstChnAttr);
 typedef CVI_S32 (*PFN_CVI_VPSS_GetChnFrame)(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, VIDEO_FRAME_INFO_S* pstVideoFrame, CVI_S32 s32MilliSec);
 typedef CVI_S32 (*PFN_CVI_VPSS_ReleaseChnFrame)(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, const VIDEO_FRAME_INFO_S* pstVideoFrame);
+typedef CVI_S32 (*PFN_CVI_VI_ReleasePipeFrame)(VI_PIPE ViPipe, const VIDEO_FRAME_INFO_S *pstVideoFrame);
 typedef CVI_S32 (*PFN_CVI_VPSS_ResetGrp)(VPSS_GRP VpssGrp);
 typedef CVI_S32 (*PFN_CVI_VPSS_SendFrame)(VPSS_GRP VpssGrp, const VIDEO_FRAME_INFO_S* pstVideoFrame, CVI_S32 s32MilliSec);
 typedef CVI_S32 (*PFN_CVI_VPSS_SetChnAttr)(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, const VPSS_CHN_ATTR_S* pstChnAttr);
@@ -840,7 +843,9 @@ static PFN_CVI_VI_EnableChn CVI_VI_EnableChn = 0;
 static PFN_CVI_VI_DisableChn CVI_VI_DisableChn = 0;
 static PFN_CVI_VI_SetChnCrop CVI_VI_SetChnCrop = 0;
 static PFN_CVI_VI_GetChnFrame CVI_VI_GetChnFrame = 0;
+static PFN_CVI_VI_GetPipeFrame CVI_VI_GetPipeFrame = 0;
 static PFN_CVI_VI_ReleaseChnFrame CVI_VI_ReleaseChnFrame = 0;
+static PFN_CVI_VI_ReleasePipeFrame CVI_VI_ReleasePipeFrame = 0;
 
 static PFN_CVI_VPSS_AttachVbPool CVI_VPSS_AttachVbPool = 0;
 static PFN_CVI_VPSS_CreateGrp CVI_VPSS_CreateGrp = 0;
@@ -924,7 +929,9 @@ static int unload_vpu_library()
     CVI_VI_DisableChn = 0;
     CVI_VI_SetChnCrop = 0;
     CVI_VI_GetChnFrame = 0;
+    CVI_VI_GetPipeFrame = 0;
     CVI_VI_ReleaseChnFrame = 0;
+    CVI_VI_ReleasePipeFrame = 0;
 
     CVI_VPSS_AttachVbPool = 0;
     CVI_VPSS_CreateGrp = 0;
@@ -1061,7 +1068,9 @@ static int load_vpu_library()
     CVI_VI_DisableChn = (PFN_CVI_VI_DisableChn)dlsym(libvpu, "CVI_VI_DisableChn");
     CVI_VI_SetChnCrop = (PFN_CVI_VI_SetChnCrop)dlsym(libvpu, "CVI_VI_SetChnCrop");
     CVI_VI_GetChnFrame = (PFN_CVI_VI_GetChnFrame)dlsym(libvpu, "CVI_VI_GetChnFrame");
+    CVI_VI_GetPipeFrame = (PFN_CVI_VI_GetPipeFrame)dlsym(libvpu, "CVI_VI_GetPipeFrame");
     CVI_VI_ReleaseChnFrame = (PFN_CVI_VI_ReleaseChnFrame)dlsym(libvpu, "CVI_VI_ReleaseChnFrame");
+    CVI_VI_ReleasePipeFrame = (PFN_CVI_VI_ReleasePipeFrame)dlsym(libvpu, "CVI_VI_ReleasePipeFrame");
 
     CVI_VPSS_AttachVbPool = (PFN_CVI_VPSS_AttachVbPool)dlsym(libvpu, "CVI_VPSS_AttachVbPool");
     CVI_VPSS_CreateGrp = (PFN_CVI_VPSS_CreateGrp)dlsym(libvpu, "CVI_VPSS_CreateGrp");
@@ -2649,7 +2658,7 @@ public:
 
     int read_frame(unsigned char* bgrdata, bool retain_image_ptr);
 
-    //void get_pipe_frame(unsigned char* bgrdata);
+    int get_pipe_frame(unsigned char* bgrdata);
 
     int stop_streaming();
 
@@ -2709,6 +2718,7 @@ public:
     int b_vpss_vbpool_attached = 0;
     int b_vpss_grp_started = 0;
     int b_vpss_frame_got = 0;
+    int b_vi_pipe_frame_got = 0;
 
     VPSS_GRP VpssGrp = 0;
     // VPSS_GRP VpssGrp = CVI_VPSS_GetAvailableGrp();
@@ -3655,9 +3665,69 @@ OUT:
 }
 
 //added by jj
-// void capture_cvi_impl::get_pipe_frame(unsigned char* bgrdata) {
+int capture_cvi_impl::get_pipe_frame(unsigned char* bgrdata) {
+    VIDEO_FRAME_INFO_S frameInfo;
+    CVI_S32 ret = CVI_VI_GetPipeFrame(ViPipe, &frameInfo, 2000);
+    if(ret != CVI_SUCCESS) {
+        fprintf(stderr, "CVI_VI_GetPipeFrame failed %x\n", ret);
+        return -1;
+    }
+    //b_vi_pipe_frame_got = 1;
+    const VIDEO_FRAME_S& vf = stFrameInfo_bgr.stVFrame;
 
-// }
+    // memcpy Y/BGR
+    CVI_U64 phyaddr = vf.u64PhyAddr[0];
+    // const unsigned char* ptr = vf.pu8VirAddr[0];
+    const int stride = vf.u32Stride[0];
+    const int length = vf.u32Length[0];
+
+    const int border_top = vf.s16OffsetTop;
+    const int border_bottom = vf.s16OffsetBottom;
+    const int border_left = vf.s16OffsetLeft;
+    const int border_right = vf.s16OffsetRight;
+
+    printf("get_pipe_frame: border %d %d %d %d\n", border_top, border_bottom, border_left, border_right);
+
+    void* mapped_ptr = CVI_SYS_MmapCache(phyaddr, length);
+    //CVI_SYS_IonInvalidateCache(phyaddr, mapped_ptr, length);
+
+    const unsigned char* ptr = (const unsigned char*)mapped_ptr + border_top * stride + border_left;
+
+    // copy to bgrdata
+    int h2 = output_height;
+    int w2 = output_width * 3;
+    if (stride == output_width * 3)
+    {
+        h2 = 1;
+        w2 = output_height * output_width * 3;
+    }
+
+    for (int i = 0; i < h2; i++)
+    {
+#if __riscv_vector
+        int j = 0;
+        int n = w2;
+        while (n > 0) {
+            size_t vl = vsetvl_e8m8(n);
+            vuint8m8_t bgr = vle8_v_u8m8(ptr + j, vl);
+            vse8_v_u8m8(bgrdata, bgr, vl);
+            bgrdata += vl;
+            j += vl;
+            n -= vl;
+        }
+#else
+        memcpy(bgrdata, ptr, w2);
+        bgrdata += w2;
+#endif
+
+        ptr += stride;
+    }
+
+    CVI_SYS_Munmap(mapped_ptr, length);
+
+    ret = CVI_VI_ReleasePipeFrame(ViPipe, &frameInfo);
+    return 0;
+}
 
 //modified by jj
 int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
@@ -4279,9 +4349,9 @@ int capture_cvi::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
     return d->read_frame(bgrdata, retain_image_ptr);
 }
 
-// void capture_cvi::get_pipe_frame(unsigned char* bgrdata) {
-//     return d->get_pipe_frame(bgrdata);
-// }
+int capture_cvi::get_pipe_frame(unsigned char* bgrdata) {
+    return d->get_pipe_frame(bgrdata);
+}
 
 //added by jj
 void* capture_cvi::getImagePtr() {
