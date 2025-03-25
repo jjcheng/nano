@@ -3670,7 +3670,7 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool returnFullRes, boo
         b_vi_frame_got = 1;
     }
 
-    if (1)
+    if (0)
     {
         // dump
         printf("DUMP stFrameInfo.stVFrame\n");
@@ -3718,13 +3718,13 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool returnFullRes, boo
         const unsigned char* ptr = (const unsigned char*)mapped_ptr + border_top * stride + border_left;
 
         // copy to bgrdata
-        int h2 = output_height;
-        int w2 = output_width * 3;
-        if (stride == output_width * 3)
-        {
-            h2 = 1;
-            w2 = output_height * output_width * 3;
-        }
+        int h2 = vf.u32Height; //output_height;
+        int w2 = vf.u32Width; //output_width * 3;
+        // if (stride == output_width * 3)
+        // {
+        //     h2 = 1;
+        //     w2 = output_height * output_width * 3;
+        // }
 
         for (int i = 0; i < h2; i++)
         {
@@ -3776,7 +3776,7 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool returnFullRes, boo
         b_vpss_frame_got = 1;
     }
 
-    if (1)
+    if (0)
     {
         // dump
         printf("DUMP stFrameInfo_bgr.stVFrame\n");
