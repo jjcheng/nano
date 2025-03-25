@@ -328,7 +328,7 @@ VideoCapture& VideoCapture::operator>>(Mat& image)
     {
         image.create(d->height, d->width, CV_8UC3);
 
-        d->cap_cvi.read_frame((unsigned char*)image.data, false, false);
+        d->cap_cvi.read_frame((unsigned char*)image.data, false);
     }
     else
 #endif
