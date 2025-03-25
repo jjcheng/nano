@@ -3670,7 +3670,7 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
         b_vi_frame_got = 1;
     }
 
-    if (0)
+    if (1)
     {
         // dump
         VIDEO_FRAME_S& vf = stFrameInfo.stVFrame;
@@ -3718,7 +3718,7 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
         b_vpss_frame_got = 1;
     }
 
-    if (0)
+    if (1)
     {
         // dump
         VIDEO_FRAME_S& vf = stFrameInfo_bgr.stVFrame;
