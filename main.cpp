@@ -368,12 +368,12 @@ void convertImagePtrToMat(VIDEO_FRAME_INFO_S frameInfo, unsigned char* bgrdata) 
     void* mapped_ptr = CVI_SYS_MmapCache(phyaddr, length);
     const unsigned char* ptr = (const unsigned char*)mapped_ptr + border_top * stride + border_left;
     // copy to bgrdata
-    int h2 = INPUT_FRAME_WIDTH;
-    int w2 = INPUT_FRAME_HEIGHT * 3;
-    if (stride == INPUT_FRAME_WIDTH * 3)
+    int h2 = MAX_FRAME_WIDTH;
+    int w2 = MAX_FRAME_HEIGHT * 3;
+    if (stride == MAX_FRAME_WIDTH * 3)
     {
         h2 = 1;
-        w2 = INPUT_FRAME_HEIGHT * INPUT_FRAME_WIDTH * 3;
+        w2 = MAX_FRAME_HEIGHT * MAX_FRAME_WIDTH * 3;
     }
     for (int i = 0; i < h2; i++)
     {
