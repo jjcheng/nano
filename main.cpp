@@ -349,39 +349,89 @@ void initModel() {
     }
 }
 
-// Convert VIDEO_FRAME_INFO_S to cv::Mat
-void convertImagePtrToMat(VIDEO_FRAME_INFO_S frameInfo, unsigned char* bgrdata) {
-    VIDEO_FRAME_S& vf = frameInfo.stVFrame;
-    // memcpy Y/BGR
-    CVI_U64 phyaddr = vf.u64PhyAddr[0];
-    // const unsigned char* ptr = vf.pu8VirAddr[0];
-    const int stride = vf.u32Stride[0];
-    const int length = vf.u32Length[0];
-
-    const int border_top = vf.s16OffsetTop;
-    //const int border_bottom = vf.s16OffsetBottom;
-    const int border_left = vf.s16OffsetLeft;
-    //const int border_right = vf.s16OffsetRight;
-
-    //printf("border %d %d %d %d\n", border_top, border_bottom, border_left, border_right);
-
-    void* mapped_ptr = CVI_SYS_MmapCache(phyaddr, length);
-    const unsigned char* ptr = (const unsigned char*)mapped_ptr + border_top * stride + border_left;
-    // copy to bgrdata
-    int h2 = MAX_FRAME_WIDTH;
-    int w2 = MAX_FRAME_HEIGHT * 3;
-    if (stride == MAX_FRAME_WIDTH * 3)
-    {
-        h2 = 1;
-        w2 = MAX_FRAME_HEIGHT * MAX_FRAME_WIDTH * 3;
+cv::Mat convertNV21FrameToBGR(const VIDEO_FRAME_INFO_S &stFrameInfo, int output_width, int output_height)
+{
+    const VIDEO_FRAME_S &vf = stFrameInfo.stVFrame;
+    // -------------------
+    // Map the Y plane
+    // -------------------
+    CVI_U64 phyaddr_y = vf.u64PhyAddr[0];
+    const int stride_y = vf.u32Stride[0];
+    const int length_y = vf.u32Length[0];
+    void* mapped_ptr_y = CVI_SYS_MmapCache(phyaddr_y, length_y);
+    if (!mapped_ptr_y)
+        throw std::runtime_error("Failed to map Y plane.");
+    // -------------------
+    // Map the UV plane
+    // -------------------
+    CVI_U64 phyaddr_uv = vf.u64PhyAddr[1];
+    const int stride_uv = vf.u32Stride[1];
+    const int length_uv = vf.u32Length[1];
+    void* mapped_ptr_uv = CVI_SYS_MmapCache(phyaddr_uv, length_uv);
+    if (!mapped_ptr_uv) {
+        CVI_SYS_Munmap(mapped_ptr_y, length_y);
+        throw std::runtime_error("Failed to map UV plane.");
     }
-    for (int i = 0; i < h2; i++)
+    // -------------------
+    // Determine cropping offsets.
+    // For the Y plane, use the full-resolution offsets.
+    // For the UV plane (subsampled vertically by 2), use border_top/2.
+    // -------------------
+    int border_top   = vf.s16OffsetTop;
+    int border_left  = vf.s16OffsetLeft;
+    // (We ignore border_bottom and border_right here.)
+    // -------------------
+    // Allocate a contiguous buffer for the NV21 data.
+    // NV21 consists of: 
+    //   - Y plane: output_height rows, each output_width bytes.
+    //   - UV plane: output_height/2 rows, each output_width bytes.
+    // Total size = output_height + output_height/2 rows * output_width.
+    // -------------------
+    int nv21_rows = output_height + output_height / 2;
+    int nv21_size = nv21_rows * output_width;
+    unsigned char* nv21_buffer = new unsigned char[nv21_size];
+    // Pointer to the destination buffer.
+    unsigned char* dst = nv21_buffer;
+    // -------------------
+    // Copy Y plane:
+    // For each row in the cropped Y region:
+    //   - The source row starts at mapped_ptr_y plus (border_top + i)*stride_y + border_left.
+    //   - Copy output_width bytes.
+    // -------------------
+    const unsigned char* src_y = static_cast<const unsigned char*>(mapped_ptr_y);
+    for (int i = 0; i < output_height; i++)
     {
-        memcpy(bgrdata, ptr, w2);
-        bgrdata += w2;
-        ptr += stride;
+        const unsigned char* src_row = src_y + (border_top + i) * stride_y + border_left;
+        memcpy(dst, src_row, output_width);
+        dst += output_width;
     }
-    CVI_SYS_Munmap(mapped_ptr, length);
+    // -------------------
+    // Copy UV plane:
+    // NV21 has the UV plane at half the vertical resolution.
+    // For the cropped region, we use (border_top/2) as the starting row.
+    // Each row in the UV plane has output_width bytes.
+    // -------------------
+    const unsigned char* src_uv = static_cast<const unsigned char*>(mapped_ptr_uv);
+    int uv_border_top = border_top / 2; // assuming even values for proper alignment
+    for (int i = 0; i < output_height / 2; i++)
+    {
+        const unsigned char* src_row = src_uv + (uv_border_top + i) * stride_uv + border_left;
+        memcpy(dst, src_row, output_width);
+        dst += output_width;
+    }
+    // -------------------
+    // Create an OpenCV Mat from the NV21 buffer.
+    // The Mat has (output_height + output_height/2) rows and output_width columns.
+    // -------------------
+    cv::Mat nv21(nv21_rows, output_width, CV_8UC1, nv21_buffer);
+    // Convert NV21 to BGR.
+    cv::Mat bgr;
+    cv::cvtColor(nv21, bgr, cv::COLOR_YUV2BGR_NV21);
+    // Clean up:
+    delete[] nv21_buffer;
+    CVI_SYS_Munmap(mapped_ptr_y, length_y);
+    CVI_SYS_Munmap(mapped_ptr_uv, length_uv);
+    return bgr;
 }
 
 // Capture an image, encode it to JPEG, and send it via HTTP POST.
@@ -407,10 +457,8 @@ void sendImage() {
         original_image_ptr = nullptr;
         return;
     }
-    // convert VIDEO_FRAME_INFO_S to cv::Mat
-    cv::Mat image;
-    image.create(MAX_FRAME_HEIGHT, MAX_FRAME_WIDTH, CV_8UC3);
-    convertImagePtrToMat(*frameInfo, (unsigned char*)image.data);
+    // Convert the NV21 frame to BGR cv::Mat.
+    cv::Mat image = convertNV21FrameToBGR(*frameInfo, MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
     if (image.empty()) {
         std::cerr << "sendImage() image is empty" << std::endl;
         cap.releaseImagePtr();
