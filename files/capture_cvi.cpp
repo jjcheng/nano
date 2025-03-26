@@ -3697,6 +3697,11 @@ int capture_cvi_impl::read_frame(unsigned char* bgrdata, bool retain_image_ptr)
             goto OUT;
         }
         b_vi_frame_got = 1;
+        if (retain_image_ptr)
+        {
+            original_image_ptr = new VIDEO_FRAME_INFO_S;
+            memcpy(original_image_ptr, &stFrameInfo, sizeof(VIDEO_FRAME_INFO_S));
+        } 
     }
 
     if (0)
@@ -3848,11 +3853,6 @@ OUT:
 
     if (b_vi_frame_got)
     {
-        if (retain_image_ptr)
-        {
-            original_image_ptr = new VIDEO_FRAME_INFO_S;
-            memcpy(original_image_ptr, &stFrameInfo, sizeof(VIDEO_FRAME_INFO_S));
-        } 
         CVI_S32 ret = CVI_VI_ReleaseChnFrame(ViPipe, ViChn, &stFrameInfo);
         if (ret != CVI_SUCCESS)
         {
