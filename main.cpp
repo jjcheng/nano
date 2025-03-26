@@ -236,8 +236,10 @@ void openCamera(int width, int height) {
 
 // Set camera resolution. TODO: to optimize
 void setCameraResolution(int width, int height) {
-    cap.release();
-    openCamera(width, height);
+    //cap.release();
+    //openCamera(width, height);
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, width);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
 }
 
 // Get currently connected ssid
@@ -347,22 +349,50 @@ void initModel() {
     }
 }
 
+// Convert VIDEO_FRAME_INFO_S to cv::Mat
+void convertImagePtrToMat(VIDEO_FRAME_INFO_S frameInfo, unsigned char* bgrdata) {
+    VIDEO_FRAME_S& vf = frameInfo.stVFrame;
+    // memcpy Y/BGR
+    CVI_U64 phyaddr = vf.u64PhyAddr[0];
+    // const unsigned char* ptr = vf.pu8VirAddr[0];
+    const int stride = vf.u32Stride[0];
+    const int length = vf.u32Length[0];
+
+    const int border_top = vf.s16OffsetTop;
+    //const int border_bottom = vf.s16OffsetBottom;
+    const int border_left = vf.s16OffsetLeft;
+    //const int border_right = vf.s16OffsetRight;
+
+    //printf("border %d %d %d %d\n", border_top, border_bottom, border_left, border_right);
+
+    void* mapped_ptr = CVI_SYS_MmapCache(phyaddr, length);
+    const unsigned char* ptr = (const unsigned char*)mapped_ptr + border_top * stride + border_left;
+    // copy to bgrdata
+    int h2 = INPUT_FRAME_WIDTH;
+    int w2 = INPUT_FRAME_HEIGHT * 3;
+    if (stride == INPUT_FRAME_WIDTH * 3)
+    {
+        h2 = 1;
+        w2 = INPUT_FRAME_HEIGHT * INPUT_FRAME_WIDTH * 3;
+    }
+    for (int i = 0; i < h2; i++)
+    {
+        memcpy(bgrdata, ptr, w2);
+        bgrdata += w2;
+        ptr += stride;
+    }
+    CVI_SYS_Munmap(mapped_ptr, length);
+}
+
 // Capture an image, encode it to JPEG, and send it via HTTP POST.
 void sendImage() {
-    //std::cout << "Sending image to remote server..." << std::endl;
-    //printf("expand to max resolution\n");
-    //setCameraResolution(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
     cv::Mat frame;
-    std::pair<void*, void> imagePtrs = cap.capture(frame);
-    //cap.getPipeFrame(frame);
+    std::pair<void*, void*> imagePtrs = cap.capture(frame);
     if (frame.empty()) {
-        //setCameraResolution(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
         cap.releaseImagePtr();
         std::cerr << "Captured empty frame!" << std::endl;
         return;
     }
-    // printf("switch back to low resolution\n");
-    // std::async(std::launch::async, setCameraResolution, INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
     printf("processing image\n");
     if (imagePtrs.second == nullptr) {
         printf("sengImage() imagePtrs.second is nullptr\n");
@@ -377,10 +407,22 @@ void sendImage() {
         original_image_ptr = nullptr;
         return;
     }
-    //TODO: convert 
+    // convert VIDEO_FRAME_INFO_S to cv::Mat
+    cv::Mat image;
+    image.create(MAX_FRAME_HEIGHT, MAX_FRAME_WIDTH, CV_8UC3);
+    convertImagePtrToMat(*frameInfo, (unsigned char*)image.data);
+    if (image.empty()) {
+        std::cerr << "sendImage() image is empty" << std::endl;
+        cap.releaseImagePtr();
+        original_image_ptr = nullptr;
+        return;
+    }
+    cap.releaseImagePtr();
+    original_image_ptr = nullptr;
+    printf("originalMat is not empty\n");
     std::vector<uchar> buffer;
     std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 100 };
-    if (!cv::imencode(".jpg", frame, buffer, params)) {
+    if (!cv::imencode(".jpg", image, buffer, params)) {
         std::cerr << "Failed to encode image." << std::endl;
         return;
     }
