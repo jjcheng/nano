@@ -193,7 +193,6 @@ std::string detectQR() {
     cv::Mat frame;
     cap >> frame;
     if (frame.empty()) return "";
-    cv::imwrite("/root/qr_image.jpg", frame);
     try {
         std::string data = qrDecoder.detectAndDecode(frame);
         if (data.empty()) {
