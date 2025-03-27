@@ -360,6 +360,9 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
             return true;
         }
     }
+    if (ssid.empty() || password.empty()) {
+        return false;
+    }
     // Step 1: Create WPA Supplicant Configuration File
     std::ofstream configFile("/etc/wpa_supplicant.conf");
     if (!configFile) {
@@ -533,9 +536,14 @@ void sendMat(cv::Mat image) {
         return;
     }
     std::vector<uchar> buffer;
-    std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 100 };
-    if (!cv::imencode(".jpg", image, buffer, params)) {
-        std::cerr << "Failed to encode image." << std::endl;
+    // std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 100 };
+    // if (!cv::imencode(".jpg", image, buffer, params)) {
+    //     std::cerr << "Failed to encode image." << std::endl;
+    //     return;
+    // }
+    std::vector<int> params = { cv::IMWRITE_WEBP_QUALITY, 100 };
+    if (!cv::imencode(".webp", image, buffer, params)) {
+        std::cerr << "Failed to encode image to WebP format." << std::endl;
         return;
     }
     CURL* curl = curl_easy_init();
@@ -588,7 +596,7 @@ void sendImage() {
         return;
     }
     // Convert the NV21 frame to BGR cv::Mat.
-    cv::Mat image = convertNV21FrameToBGR(*frameInfo, MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT, true);
+    cv::Mat image = convertNV21FrameToBGR(*frameInfo, MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT, false);
     if (image.empty()) {
         std::cerr << "sendImage() image is empty" << std::endl;
         cap.releaseImagePtr();
