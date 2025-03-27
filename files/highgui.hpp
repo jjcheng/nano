@@ -28,7 +28,8 @@ enum
 
 enum
 {
-    CV_IMWRITE_JPEG_QUALITY     = 1
+    CV_IMWRITE_JPEG_QUALITY     = 1,
+    CV_IMWRITE_WEBP_QUALITY = 64,
 };
 
 enum
@@ -49,7 +50,8 @@ enum ImreadModes
 
 enum ImwriteFlags
 {
-    IMWRITE_JPEG_QUALITY        = 1
+    IMWRITE_JPEG_QUALITY        = 1,
+    IMWRITE_WEBP_QUALITY        = 64,
 };
 
 enum VideoCaptureProperties
