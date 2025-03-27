@@ -70,7 +70,6 @@ struct HttpResponse {
 };
 
 // Utilities
-// Helper function to trim whitespace from both ends of a string.
 std::string trim(const std::string &s) {
     size_t start = s.find_first_not_of(" \t\r\n");
     size_t end = s.find_last_not_of(" \t\r\n");
@@ -81,13 +80,11 @@ void sleepSeconds(int seconds) {
     std::this_thread::sleep_for(std::chrono::seconds(seconds));
 }
 
-// Signal handler (only sets flag)
 void interruptHandler(int signum) {
     std::printf("Received signal: %d\n", signum);
     interrupted = 1;
 }
 
-// Run a system command and return true if the return code is 0.
 bool runSystemCommand(const std::string& command) {
     int status = std::system(command.c_str());
     if (status != 0) {
@@ -97,7 +94,6 @@ bool runSystemCommand(const std::string& command) {
     return true;
 }
 
-// Get the IP address of the specified network interface.
 std::string getIPAddress() {
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) return "";
@@ -118,7 +114,6 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
     return totalSize;
 }
 
-// Perform an HTTP GET request using libcurl.
 HttpResponse httpGet(const std::string& url) {
     HttpResponse response{ "", 0 };
     CURL* curl = curl_easy_init();
@@ -139,7 +134,6 @@ HttpResponse httpGet(const std::string& url) {
     return response;
 }
 
-// Function to make an HTTP POST request with a body and return the response.
 HttpResponse httpPost(const std::string& url, const std::string& postBody) {
     HttpResponse response { "", 0 };
     CURL* curl = curl_easy_init();
@@ -161,6 +155,33 @@ HttpResponse httpPost(const std::string& url, const std::string& postBody) {
     }
     curl_easy_cleanup(curl);
     return response;
+}
+
+void exportGPIO() {
+    std::ofstream exportFile("/sys/class/gpio/export");
+    exportFile << "64";
+    exportFile.close();
+}
+
+void setGPIODirection() {
+    std::ofstream directionFile("/sys/class/gpio/gpio64/direction");
+    directionFile << "out";
+    directionFile.close();
+}
+
+void setLED(bool state) {
+    std::ofstream valueFile("/sys/class/gpio/gpio64/value");
+    valueFile << (state ? "1" : "0");
+    valueFile.close();
+}
+
+void blinkLED(int times, int delayMs) {
+    for (int i = 0; i < times; i++) {
+        setLED(true);
+        std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
+        setLED(false);
+        std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
+    }
 }
 
 // Clean up resources gracefully.
@@ -498,6 +519,9 @@ void sendImage() {
 
 // Setup before running main logics
 void setup() {
+    exportGPIO();
+    setGPIODirection();
+    //start connections
     std::string ssid, password;
     bool isConnected = false;
     std::ifstream file(WIFI_CONFIG_FILE_PATH);
@@ -536,12 +560,13 @@ void setup() {
     // If not connected, scan for QR code to get credentials.
     if (!isConnected) {
         openCamera(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
-        int retries = 0;
+       // int retries = 0;
         while (!interrupted) {
-            retries++;
-            if (retries > 10) {
-                throw std::runtime_error("Unable to detect WIFI QR Code after 10 tries");
-            }
+            //retries++;
+            // if (retries > 10) {
+            //     throw std::runtime_error("Unable to detect WIFI QR Code after 10 tries");
+            // }
+            blinkLED(3, 100);
             std::string qrContent = detectQR();
             if (qrContent.empty()) {
                 sleepSeconds(3);
