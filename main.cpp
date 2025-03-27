@@ -588,7 +588,7 @@ void sendImage() {
         return;
     }
     // Convert the NV21 frame to BGR cv::Mat.
-    cv::Mat image = convertNV21FrameToBGR(*frameInfo, MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
+    cv::Mat image = convertNV21FrameToBGR(*frameInfo, MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT, true);
     if (image.empty()) {
         std::cerr << "sendImage() image is empty" << std::endl;
         cap.releaseImagePtr();
