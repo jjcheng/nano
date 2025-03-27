@@ -228,7 +228,7 @@ int loop(){
 		//convert yuyv to VIDEO_FRAME_INFO_S
 		VIDEO_FRAME_INFO_S frameInfo = convertYUYVMatToVideoFrameInfo(resized_image);
 		cvtdl_object_t obj_meta = {0};
-		CVI_TDL_Detection(tdl_handle, frameInfo, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, &obj_meta);
+		CVI_TDL_Detection(tdl_handle, &frameInfo, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, &obj_meta);
 		//check for detections
 		std::printf("Detected %d objects\n", obj_meta.size);
 	}
