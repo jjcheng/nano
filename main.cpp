@@ -69,6 +69,67 @@ struct HttpResponse {
     long statusCode;
 };
 
+class GPIO {
+private:
+    int pin;
+    std::string gpioPath;
+
+public:
+    // Constructor: Initialize GPIO pin
+    GPIO(int pinNumber) : pin(pinNumber), gpioPath("/sys/class/gpio/gpio" + std::to_string(pinNumber) + "/") {
+        exportGPIO();
+        setDirection("out");
+    }
+
+    // Destructor: Unexport GPIO pin
+    ~GPIO() {
+        unexportGPIO();
+    }
+
+    // Export the GPIO pin
+    void exportGPIO() {
+        std::ofstream exportFile("/sys/class/gpio/export");
+        if (!exportFile.is_open()) {
+            throw std::runtime_error("Unable to open GPIO export file.");
+        }
+        exportFile << pin;
+        exportFile.close();
+    }
+
+    // Unexport the GPIO pin
+    void unexportGPIO() {
+        std::ofstream unexportFile("/sys/class/gpio/unexport");
+        if (!unexportFile.is_open()) {
+            throw std::runtime_error("Unable to open GPIO unexport file.");
+        }
+        unexportFile << pin;
+        unexportFile.close();
+    }
+
+    // Set GPIO direction (in/out)
+    void setDirection(const std::string& direction) {
+        std::ofstream directionFile(gpioPath + "direction");
+        if (!directionFile.is_open()) {
+            throw std::runtime_error("Unable to open GPIO direction file.");
+        }
+        directionFile << direction;
+        directionFile.close();
+    }
+
+    // Write value to GPIO (0 or 1)
+    void writeValue(int value) {
+        if (value != 0 && value != 1) {
+            throw std::invalid_argument("GPIO value must be 0 or 1.");
+        }
+        std::ofstream valueFile(gpioPath + "value");
+        if (!valueFile.is_open()) {
+            throw std::runtime_error("Unable to open GPIO value file.");
+        }
+        valueFile << value;
+        valueFile.close();
+    }
+};
+
 // Utilities
 std::string trim(const std::string &s) {
     size_t start = s.find_first_not_of(" \t\r\n");
@@ -176,11 +237,28 @@ void setLED(bool state) {
 }
 
 void blinkLED(int times, int delayMs) {
-    for (int i = 0; i < times; i++) {
-        setLED(true);
-        std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
-        setLED(false);
-        std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
+    // for (int i = 0; i < times; i++) {
+    //     setLED(true);
+    //     std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
+    //     setLED(false);
+    //     std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
+    // }
+    try {
+        // Initialize GPIO pin (replace 18 with your actual GPIO pin number)
+        GPIO led(64);
+
+        // Blink the LED
+        for (int i = 0; i < 5; ++i) {
+            std::cout << "LED ON" << std::endl;
+            led.writeValue(1);  // Turn LED ON
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+
+            std::cout << "LED OFF" << std::endl;
+            led.writeValue(0);  // Turn LED OFF
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
     }
 }
 
@@ -359,7 +437,7 @@ void initModel() {
     }
 }
 
-cv::Mat convertNV21FrameToBGR(const VIDEO_FRAME_INFO_S &stFrameInfo, int output_width, int output_height)
+cv::Mat convertNV21FrameToBGR(const VIDEO_FRAME_INFO_S &stFrameInfo, int output_width, int output_height, bool gray)
 {
     const VIDEO_FRAME_S &vf = stFrameInfo.stVFrame;
     // -------------------
@@ -436,7 +514,12 @@ cv::Mat convertNV21FrameToBGR(const VIDEO_FRAME_INFO_S &stFrameInfo, int output_
     cv::Mat nv21(nv21_rows, output_width, CV_8UC1, nv21_buffer);
     // Convert NV21 to BGR.
     cv::Mat bgr;
-    cv::cvtColor(nv21, bgr, cv::COLOR_YUV2BGR_NV21);
+    if (gray) {
+        cv::cvtColor(nv21, bgr, cv::COLOR_YUV2GRAY_NV21);
+    }
+    else {
+        cv::cvtColor(nv21, bgr, cv::COLOR_YUV2BGR_NV21);
+    }
     // Clean up:
     delete[] nv21_buffer;
     CVI_SYS_Munmap(mapped_ptr_y, length_y);
@@ -512,6 +595,8 @@ void sendImage() {
         original_image_ptr = nullptr;
         return;
     }
+    //convert to gray scale
+    
     cap.releaseImagePtr();
     original_image_ptr = nullptr;
     sendMat(image);
@@ -566,7 +651,7 @@ void setup() {
             // if (retries > 10) {
             //     throw std::runtime_error("Unable to detect WIFI QR Code after 10 tries");
             // }
-            blinkLED(3, 100);
+            setLED(true);
             std::string qrContent = detectQR();
             if (qrContent.empty()) {
                 sleepSeconds(3);
