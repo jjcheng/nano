@@ -41,8 +41,6 @@ void sendMat(cv::Mat image);
 constexpr size_t BUFFER_SIZE = 4096;
 constexpr const char* WIFI_CONFIG_FILE_PATH = "/root/wifi_config";
 constexpr const char* SAVE_IMAGE_PATH = "/root/captured.jpg";
-constexpr double CONF_THRESHOLD = 0.5;
-constexpr double IOU_THRESHOLD = 0.5;
 constexpr int NO_CHANGE_FRAME_LIMIT = 10;
 constexpr double CHANGE_THRESHOLD_PERCENT = 0.10;
 constexpr const char* INTERFACE_NAME = "wlan0";
