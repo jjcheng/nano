@@ -541,8 +541,8 @@ void sendMat(cv::Mat image) {
     //     std::cerr << "Failed to encode image." << std::endl;
     //     return;
     // }
-    std::vector<int> params = { cv::IMWRITE_WEBP_QUALITY, 100 };
-    if (!cv::imencode(".webp", image, buffer, params)) {
+    //std::vector<int> params = { cv::IMWRITE_WEBP_QUALITY, 100 };
+    if (!cv::imencode(".webp", image, buffer, {})) {
         std::cerr << "Failed to encode image to WebP format." << std::endl;
         return;
     }
