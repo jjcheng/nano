@@ -29,7 +29,7 @@ enum
 enum
 {
     CV_IMWRITE_JPEG_QUALITY     = 1,
-    CV_IMWRITE_WEBP_QUALITY = 64,
+    CV_IMWRITE_WEBP_QUALITY     = 64,
 };
 
 enum

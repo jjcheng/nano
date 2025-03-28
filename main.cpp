@@ -536,7 +536,7 @@ void sendMat(cv::Mat image) {
         return;
     }
     std::vector<uchar> buffer;
-    // std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 90 };
+    //std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 90 };
     // if (!cv::imencode(".jpg", image, buffer, params)) {
     //     std::cerr << "Failed to encode image." << std::endl;
     //     return;
