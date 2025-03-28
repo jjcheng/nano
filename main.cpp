@@ -603,8 +603,6 @@ void sendImage() {
         original_image_ptr = nullptr;
         return;
     }
-    //convert to gray scale
-    
     cap.releaseImagePtr();
     original_image_ptr = nullptr;
     sendMat(image);
