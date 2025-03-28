@@ -536,16 +536,16 @@ void sendMat(cv::Mat image) {
         return;
     }
     std::vector<uchar> buffer;
-    //std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 90 };
-    // if (!cv::imencode(".jpg", image, buffer, params)) {
-    //     std::cerr << "Failed to encode image." << std::endl;
-    //     return;
-    // }
-    std::vector<int> params = { cv::IMWRITE_WEBP_QUALITY, 90 };
-    if (!cv::imencode(".webp", image, buffer, {})) {
-        std::cerr << "Failed to encode image to WebP format." << std::endl;
+    std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 90 };
+    if (!cv::imencode(".jpg", image, buffer, params)) {
+        std::cerr << "Failed to encode image." << std::endl;
         return;
     }
+    // std::vector<int> params = { cv::IMWRITE_WEBP_QUALITY, 90 };
+    // if (!cv::imencode(".webp", image, buffer, {})) {
+    //     std::cerr << "Failed to encode image to WebP format." << std::endl;
+    //     return;
+    // }
     CURL* curl = curl_easy_init();
     if (!curl) {
         std::cerr << "Failed to initialize libcurl" << std::endl;
@@ -596,7 +596,7 @@ void sendImage() {
         return;
     }
     // Convert the NV21 frame to BGR cv::Mat.
-    cv::Mat image = convertNV21FrameToBGR(*frameInfo, MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT, false);
+    cv::Mat image = convertNV21FrameToBGR(*frameInfo, MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT, true);
     if (image.empty()) {
         std::cerr << "sendImage() image is empty" << std::endl;
         cap.releaseImagePtr();
