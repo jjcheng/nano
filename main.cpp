@@ -332,7 +332,7 @@ void openCamera(int width, int height) {
 
 // Get currently connected ssid
 std::string getConnectedSSID() {
-    std::string cmd = "iw dev " + std::string(INTERFACE_NAME) + " link | grep SSID | awk '{print substr($0, index($0,$2))}'";
+    std::string cmd = "iw dev " + std::string(INTERFACE_NAME) + " link | grep ssid | awk '{print substr($0, index($0,$2))}'";
     char buffer[128];
     std::string result;
     FILE* pipe = popen(cmd.c_str(), "r");
@@ -351,15 +351,39 @@ std::string getConnectedSSID() {
 
 // Connect to WiFi using system commands via wpa_cli
 bool connectToWifi(const std::string& ssid, const std::string& password) {
-    // check if is already connected to ssid, don't try to connect again
-    std::string connectedSSID = getConnectedSSID();
-    if(connectedSSID == ssid) {
-        std::string ip = getIPAddress();
-        if (!ip.empty()) {
-            printf("already connected to %s with ip %s\n", ssid.c_str(), ip.c_str());
-            return true;
+    // Read the existing configuration file if it exists.
+    std::ifstream existingConfig("/etc/wpa_supplicant.conf");
+    std::string fileContents;
+    if (existingConfig) {
+        std::stringstream buffer;
+        buffer << existingConfig.rdbuf();
+        fileContents = buffer.str();
+        existingConfig.close();
+        // Create search strings to check for the given ssid and password.
+        std::string ssidLine = "ssid=\"" + ssid + "\"";
+        //std::string pskLine = "psk=\"" + password + "\"";
+        // If both the ssid and psk lines are found in the file, do not overwrite.
+        if (fileContents.find(ssidLine) != std::string::npos) {
+            //try 5 times to connect to ssid
+            for (int i = 0; i < 5; i++) {
+                if (!getIPAddress().empty()){
+                    std::cout << "SSID exists and is connected" << std::endl;
+                    return true;
+                }
+                std::cout << "SSID exists but not connected, retry after 3 seconds" << std::endl;
+                sleepSeconds(3);
+            }
         }
     }
+    // check if is already connected to ssid, don't try to connect again
+    // std::string connectedSSID = getConnectedSSID();
+    // if(connectedSSID == ssid) {
+    //     std::string ip = getIPAddress();
+    //     if (!ip.empty()) {
+    //         printf("already connected to %s with ip %s\n", ssid.c_str(), ip.c_str());
+    //         return true;
+    //     }
+    // }
     if (ssid.empty() || password.empty()) {
         return false;
     }
@@ -382,8 +406,16 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
         std::cerr << "Error: Failed to start wpa_supplicant" << std::endl;
         return false;
     }
-    // Step 3: Obtain IP Address
-    return getIPAddress() != "";
+    //try 5 times to connect to wifi
+    for (int i = 0; i < 5; i++) {
+        if (!getIPAddress().empty()){
+            std::cout << "wifi connected" << std::endl;
+            return true;
+        }
+        std::cout << "wifi not connected, retry after 3 seconds" << std::endl;
+        sleepSeconds(3);
+    }
+    return false;
 }
 
 // Connect to a remote server by sending a ping request.

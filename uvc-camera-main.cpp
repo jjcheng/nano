@@ -132,7 +132,9 @@ void initModel() {
 }
 
 int loop(){
+	printf("loop");
 	const char *device = DEVICE;
+	printf(device);
 	int fd = open(device, O_RDWR);
 	if (fd == -1) {
 		perror("Opening video device");
