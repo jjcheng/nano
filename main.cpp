@@ -375,15 +375,6 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
             }
         }
     }
-    // check if is already connected to ssid, don't try to connect again
-    // std::string connectedSSID = getConnectedSSID();
-    // if(connectedSSID == ssid) {
-    //     std::string ip = getIPAddress();
-    //     if (!ip.empty()) {
-    //         printf("already connected to %s with ip %s\n", ssid.c_str(), ip.c_str());
-    //         return true;
-    //     }
-    // }
     if (ssid.empty() || password.empty()) {
         return false;
     }
@@ -563,16 +554,21 @@ cv::Mat convertNV21FrameToBGR(const VIDEO_FRAME_INFO_S &stFrameInfo, int output_
 }
 
 void sendMat(cv::Mat image) {
-    if (getIPAddress().empty()){
-        printf("no ip address\n");
-        return;
-    }
+    // if (getIPAddress().empty()){
+    //     printf("no ip address\n");
+    //     return;
+    // }
+    printf("encoding image\n");
+    auto start = std::chrono::high_resolution_clock::now();
     std::vector<uchar> buffer;
     std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 90 };
     if (!cv::imencode(".jpg", image, buffer, params)) {
         std::cerr << "Failed to encode image." << std::endl;
         return;
     }
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end - start;
+    std::cout << "execution time: " << duration.count() << " seconds" << std::endl;
     // std::vector<int> params = { cv::IMWRITE_WEBP_QUALITY, 90 };
     // if (!cv::imencode(".webp", image, buffer, {})) {
     //     std::cerr << "Failed to encode image to WebP format." << std::endl;
@@ -584,6 +580,7 @@ void sendMat(cv::Mat image) {
         return;
     }
     printf("sending image now\n");
+    start = std::chrono::high_resolution_clock::now();
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/octet-stream");
     std::string url = remoteBaseUrl + "/upload";
@@ -598,10 +595,13 @@ void sendMat(cv::Mat image) {
     } else {
         long httpCode = 0;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
-        std::cout << "HTTP Status Code: " << httpCode << std::endl;
+        std::cout << "image sent: " << httpCode << std::endl;
     }
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "execution time: " << duration.count() << " seconds" << std::endl;
 }
 
 // Capture an image, encode it to JPEG, and send it via HTTP POST.
@@ -613,7 +613,6 @@ void sendImage() {
         std::cerr << "Captured empty frame!" << std::endl;
         return;
     }
-    printf("processing image\n");
     if (imagePtrs.second == nullptr) {
         printf("sengImage() imagePtrs.second is nullptr\n");
         cap.releaseImagePtr();
@@ -628,7 +627,9 @@ void sendImage() {
         return;
     }
     // Convert the NV21 frame to BGR cv::Mat.
-    cv::Mat image = convertNV21FrameToBGR(*frameInfo, MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT, true);
+    printf("converting frame info to bgr\n");
+    auto start = std::chrono::high_resolution_clock::now();
+    cv::Mat image = convertNV21FrameToBGR(*frameInfo, MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT, false);
     if (image.empty()) {
         std::cerr << "sendImage() image is empty" << std::endl;
         cap.releaseImagePtr();
@@ -637,6 +638,11 @@ void sendImage() {
     }
     cap.releaseImagePtr();
     original_image_ptr = nullptr;
+    printf("conversion is done\n");
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end - start;
+    // Print the duration in seconds
+    std::cout << "execution time: " << duration.count() << " seconds" << std::endl;
     sendMat(image);
 }
 
