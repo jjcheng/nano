@@ -1900,6 +1900,7 @@ static int load_sns_obj_library()
     else if (device_model == 3)
     {
         // licheerv nano
+        #ifdef SENSOR_GCORE_GC4653
         libsns_obj = dlopen("libsns_gc4653.so", RTLD_LOCAL | RTLD_NOW);
         if (!libsns_obj)
         {
@@ -1910,8 +1911,20 @@ static int load_sns_obj_library()
             fprintf(stderr, "%s\n", dlerror());
             goto OUT;
         }
-
         pstSnsObj = (ISP_SNS_OBJ_S*)dlsym(libsns_obj, "stSnsGc4653_Obj");
+        #else
+        libsns_obj = dlopen("libsns_os04a10.so", RTLD_LOCAL | RTLD_NOW);
+        if (!libsns_obj)
+        {
+            libsns_obj = dlopen("/mnt/system/lib/libsns_os04a10.so", RTLD_LOCAL | RTLD_NOW);
+        }
+        if (!libsns_obj)
+        {
+            fprintf(stderr, "%s\n", dlerror());
+            goto OUT;
+        }
+        pstSnsObj = (ISP_SNS_OBJ_S*)dlsym(libsns_obj, "stSnsOs04a10_Obj");
+        #endif
     }
     else
     {

@@ -306,6 +306,10 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
 
 // Connect to a remote server by sending a ping request.
 bool connectToRemote() {
+    if (remoteBaseUrl.empty()) {
+        printf("no remoteBaseUrl\n");
+        return false;
+    }
     std::string myIp = getIPAddress();
     std::string url = remoteBaseUrl + "/ping?ip=" + myIp;
     int retries = 0;
@@ -456,7 +460,7 @@ void sendMat(cv::Mat image) {
     printf("encoding image\n");
     auto start = std::chrono::high_resolution_clock::now();
     std::vector<uchar> buffer;
-    std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 99 };
+    std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 90 };
     if (!cv::imencode(".jpg", image, buffer, params)) {
         std::cerr << "Failed to encode image." << std::endl;
         return;
