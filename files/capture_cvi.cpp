@@ -2671,8 +2671,8 @@ static const struct sensor_cfg* get_sensor_cfg()
         #else
         // OS04A10 info
         static const struct sensor_cfg os04a10 = {
-            2688,   // cap_width
-            1520,   // cap_height
+            2560,   // cap_width
+            1440,   // cap_height
             30,     // cap_fps
             WDR_MODE_NONE,      // cap_wdr_mode
             BAYER_FORMAT_RG,    // cap_bayer_format
