@@ -2582,6 +2582,7 @@ static const struct sns_ini_cfg* get_sns_ini_cfg()
     if (device_model == 3)
     {
         // licheerv nano
+        #ifdef SENSOR_GCORE_GC4653
         static const struct sns_ini_cfg lpirvnano = {
             4,  // bus_id
             29, // sns_i2c_addr
@@ -2591,8 +2592,19 @@ static const struct sns_ini_cfg* get_sns_ini_cfg()
             true,   // mclk_en
             0       // mclk
         };
-
         return &lpirvnano;
+        #else 
+        static const struct sns_ini_cfg lpirvnano = {
+            4,  // bus_id
+            36, // sns_i2c_addr
+            0,  // mipi_dev
+            {2, 3, 1, 4, 0},  // lane_id
+            {1, 1, 1, 1, 1},    // pn_swap
+            false,   // mclk_en
+            0       // mclk
+        };
+        return &lpirvnano;
+        #endif
     }
     if (device_model == 4)
     {
@@ -2645,6 +2657,7 @@ static const struct sensor_cfg* get_sensor_cfg()
     if (device_model == 3)
     {
         // licheerv nano
+        #ifdef SENSOR_GCORE_GC4653
         // gc4653 info
         static const struct sensor_cfg gc4653 = {
             2560,   // cap_width
@@ -2654,8 +2667,19 @@ static const struct sensor_cfg* get_sensor_cfg()
             BAYER_FORMAT_RG,    // cap_bayer_format
             BAYER_RGGB          // isp_bayer_format
         };
-
         return &gc4653;
+        #else
+        // OS04A10 info
+        static const struct sensor_cfg os04a10 = {
+            2688,   // cap_width
+            1520,   // cap_height
+            30,     // cap_fps
+            WDR_MODE_NONE,      // cap_wdr_mode
+            BAYER_FORMAT_RG,    // cap_bayer_format
+            BAYER_RGGB          // isp_bayer_format
+        };
+        return &os04a10;
+        #endif
     }
 
     return NULL;
