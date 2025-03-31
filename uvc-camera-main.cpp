@@ -134,7 +134,6 @@ void initModel() {
 int loop(){
 	printf("loop");
 	const char *device = DEVICE;
-	printf(device);
 	int fd = open(device, O_RDWR);
 	if (fd == -1) {
 		perror("Opening video device");
@@ -155,8 +154,8 @@ int loop(){
 	struct v4l2_format fmt;
 	CLEAR(fmt);
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	fmt.fmt.pix.width = IMAGE_WIDTH;   // Image width
-	fmt.fmt.pix.height = IMAGE_HEIGHT; // Image height
+	fmt.fmt.pix.width = IMAGE_WIDTH;  
+	fmt.fmt.pix.height = IMAGE_HEIGHT; 
 	fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
 	fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
 
