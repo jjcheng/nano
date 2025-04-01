@@ -44,6 +44,7 @@ constexpr const char* SAVE_IMAGE_PATH = "/root/captured.jpg";
 constexpr int NO_CHANGE_FRAME_LIMIT = 10;
 constexpr double CHANGE_THRESHOLD_PERCENT = 0.10;
 constexpr const char* INTERFACE_NAME = "wlan0";
+constexpr const char* USER_LED_PATH = "/sys/class/leds/led-user";
 
 // YOLO defines
 constexpr const char* MODEL_FILE_PATH = "/root/detect.cvimodel";
@@ -157,6 +158,70 @@ HttpResponse httpPost(const std::string& url, const std::string& postBody) {
     return response;
 }
 
+// Set user LED on|off|flash|status
+void setUserLEDTrigger(const std::string& trigger) {
+    std::ofstream fs(std::string(USER_LED_PATH) + "/trigger");
+    if (!fs) {
+        std::cerr << "Error: Unable to set trigger" << std::endl;
+        return;
+    }
+    fs << trigger;
+    fs.close();
+}
+
+// Set User LED brightness 0|1
+void setUserLEDBrightness(int brightness) {
+    std::ofstream fs(std::string(USER_LED_PATH) + "/brightness");
+    if (!fs) {
+        std::cerr << "Error: Unable to set brightness" << std::endl;
+        return;
+    }
+    fs << brightness;
+    fs.close();
+}
+
+// command: on|off|flash, flashInterval 300|1000
+void controlUserLED(const char* command, int flashInterval) {
+    if (command == "on") {
+        setUserLEDTrigger("none"); // Disable any active triggers
+        setUserLEDBrightness(1);   // Turn the LED on
+    } else if (command == "off") {
+        setUserLEDTrigger("none"); // Disable any active triggers
+        setUserLEDBrightness(0);   // Turn the LED off
+    } else if (command == "flash") {
+        setUserLEDTrigger("timer"); // Enable timer trigger for flashing
+        std::ofstream fs(std::string(USER_LED_PATH) + "/delay_on");
+        fs << flashInterval; // Set ON duration to 500ms
+        fs.close();
+        fs.open(std::string(USER_LED_PATH) + "/delay_off");
+        fs << flashInterval; // Set OFF duration to 500ms
+        fs.close();
+    }
+    else {
+        std::cerr << "Invalid command. Use [on|off|flash]." << std::endl;
+    }
+}
+
+// Flash user led for x times with x internal ms
+void flashUserLED(int times, int interval_ms) {
+    for (int i = 0; i < times; ++i) {
+        controlUserLED("on", 0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
+        controlUserLED("off", 0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
+    }
+}
+
+// Print current user LED status on terminal
+void printUserLEDStatus() {
+    std::ifstream fs(std::string(USER_LED_PATH) + "/trigger");
+    std::string line;
+    while (std::getline(fs, line)) {
+        std::cout << "current user led status: " << line << std::endl; // Display current trigger status
+    }
+    fs.close();
+}
+
 // Clean up resources gracefully.
 void cleanUp() {
     cap.release();
@@ -165,6 +230,7 @@ void cleanUp() {
         tdl_handle = nullptr;
     }
     curl_global_cleanup();
+    controlUserLED("off", 0);
 }
 
 void sendErrorToRemote(const std::string& error) {
@@ -206,7 +272,10 @@ std::string detectQR() {
 // Open the default camera and warm it up by skipping initial frames.
 void openCamera(int width, int height) {
     int retries = 0;
-    while (!interrupted && !cap.isOpened()) {
+    while (!interrupted) {
+        if (cap.isOpened()) {
+            break;
+        }
         retries ++;
         if (retries > 5) {
             throw std::runtime_error("Failed to open camera after 5 tries");
@@ -216,7 +285,8 @@ void openCamera(int width, int height) {
         cap.open(0);
         if (!cap.isOpened()) {
             std::cerr << "Failed to open camera; retrying in 3 seconds..." << std::endl;
-            sleepSeconds(3);
+            //sleepSeconds(3);
+            flashUserLED(3, 1000);
         } else {
             cv::Mat dummy;
             for (int i = 0; i < 15 && !interrupted; ++i)
@@ -266,6 +336,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
                     return true;
                 }
                 std::cout << "SSID exists but not connected, retry after 3 seconds" << std::endl;
+                flashUserLED(3, 500);
                 sleepSeconds(3);
             }
         }
@@ -315,7 +386,7 @@ bool connectToRemote() {
     int retries = 0;
     while(!interrupted) {
         retries++;
-        if(retries > 10) {
+        if(retries > 5) {
             return false;
         }
         HttpResponse response = httpGet(url);
@@ -323,6 +394,7 @@ bool connectToRemote() {
             return true;
         } else {
             std::cerr << "Remote connection failed, retry after 3 seconds" << std::endl;
+            flashUserLED(3, 500);
             sleepSeconds(3);
         }
     }
@@ -505,6 +577,7 @@ void sendMat(cv::Mat image) {
 
 // Capture an image, encode it to JPEG, and send it via HTTP POST.
 void sendImage() {
+    flashUserLED(2, 150);
     cv::Mat frame;
     std::pair<void*, void*> imagePtrs = cap.capture(frame);
     if (frame.empty()) {
@@ -585,15 +658,12 @@ void setup() {
     }
     // If not connected, scan for QR code to get credentials.
     if (!isConnected) {
+        //controlUserLED("flash", 250);
         openCamera(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
-       // int retries = 0;
         while (!interrupted) {
-            //retries++;
-            // if (retries > 10) {
-            //     throw std::runtime_error("Unable to detect WIFI QR Code after 10 tries");
-            // }
             std::string qrContent = detectQR();
             if (qrContent.empty()) {
+                flashUserLED(6, 250);
                 sleepSeconds(3);
                 continue;
             }
@@ -636,6 +706,7 @@ void setup() {
         //no need to treat it as error since all 3 variables are ready
         std::cerr << "Unable to open file for writing: " << WIFI_CONFIG_FILE_PATH << std::endl;
     }
+    controlUserLED("off", 0);
 }
 
 // Main processing loop: compare frames and trigger detection if no significant change.
@@ -719,6 +790,7 @@ void loop() {
 }
 
 int main() {
+    controlUserLED("on", 0);
     if(curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
         std::cerr << "curl_global_init() failed" << std::endl;
         return -1;
