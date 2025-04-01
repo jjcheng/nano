@@ -19,6 +19,8 @@ constexpr double MODEL_THRESH = 0.5;
 constexpr double MODEL_NMS_THRESH = 0.5;
 constexpr int INPUT_FRAME_WIDTH = 640;
 constexpr int INPUT_FRAME_HEIGHT = 640;
+constexpr int CAMERA_WIDTH = 640;
+constexpr int CAMERA_HEIGHT = 480;
 
 cvitdl_handle_t tdl_handle = nullptr;
 
@@ -102,8 +104,8 @@ public:
         }
         struct v4l2_format format = {};
         format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        format.fmt.pix.width = 640;
-        format.fmt.pix.height = 480;
+        format.fmt.pix.width = CAMERA_WIDTH;
+        format.fmt.pix.height = CAMERA_HEIGHT;
         format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
         format.fmt.pix.field = V4L2_FIELD_NONE;
         if (ioctl(fd, VIDIOC_S_FMT, &format) < 0) {
@@ -144,88 +146,86 @@ public:
     }
 
     bool captureFrame() {
-    // Dequeue the buffer containing the captured frame
-    struct v4l2_buffer buffer_info = {};
-    buffer_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    buffer_info.memory = V4L2_MEMORY_MMAP;
-    buffer_info.index = 0;
-    if (ioctl(fd, VIDIOC_DQBUF, &buffer_info) < 0) {
-        std::fprintf(stderr, "Failed to dequeue buffer\n");
-        return false;
+        // Dequeue the buffer containing the captured frame
+        struct v4l2_buffer buffer_info = {};
+        buffer_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        buffer_info.memory = V4L2_MEMORY_MMAP;
+        buffer_info.index = 0;
+        if (ioctl(fd, VIDIOC_DQBUF, &buffer_info) < 0) {
+            std::fprintf(stderr, "Failed to dequeue buffer\n");
+            return false;
+        }
+
+        std::cout << "Captured frame of size: " << buffer_info.bytesused << " bytes" << std::endl;
+
+        // Wrap the raw buffer data in a Mat.
+        // Note: Ensure that the width (640) and height (480) match your device settings.
+        cv::Mat yuyv(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC2, buffer);
+        if (yuyv.empty()) {
+            std::fprintf(stderr, "Captured frame is empty\n");
+            // Requeue the buffer before returning if possible.
+            ioctl(fd, VIDIOC_QBUF, &buffer_info);
+            return false;
+        }
+
+        // Resize the image to the desired input size for YOLO detection.
+        cv::Mat resized_yuyv;
+        std::cout << "Resizing YUYV frame..." << std::endl;
+        cv::resize(yuyv, resized_yuyv, cv::Size(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT));
+        if (resized_yuyv.empty()) {
+            std::fprintf(stderr, "Resized image is empty\n");
+            ioctl(fd, VIDIOC_QBUF, &buffer_info);
+            return false;
+        }
+
+        // Convert from YUYV to BGR format.
+        // This conversion flag is correct if your data is in YUYV format.
+        cv::Mat bgr;
+        try {
+            cv::cvtColor(resized_yuyv, bgr, cv::COLOR_YUV2BGR_YUYV);
+        } catch (const cv::Exception& e) {
+            std::fprintf(stderr, "Error converting color: %s\n", e.what());
+            ioctl(fd, VIDIOC_QBUF, &buffer_info);
+            return false;
+        }
+
+        if (bgr.empty()) {
+            std::fprintf(stderr, "BGR image is empty after conversion\n");
+            ioctl(fd, VIDIOC_QBUF, &buffer_info);
+            return false;
+        }
+
+        // Save the converted frame to disk for verification
+        std::string filename = "resized.jpg";
+        if (!cv::imwrite(filename, bgr)) {
+            std::fprintf(stderr, "Failed to save frame to %s\n", filename.c_str());
+            ioctl(fd, VIDIOC_QBUF, &buffer_info);
+            return false;
+        }
+        std::cout << "Saved frame to " << filename << std::endl;
+
+        // Convert the resized YUYV image to your application's VIDEO_FRAME_INFO_S format
+        VIDEO_FRAME_INFO_S frameInfo = convertYUYVMatToVideoFrameInfo(resized_yuyv);
+        std::cout << "Converted to VIDEO_FRAME_INFO_S" << std::endl;
+
+        // Perform object detection using YOLOv8
+        cvtdl_object_t obj_meta = {0};
+        CVI_TDL_Detection(tdl_handle, &frameInfo, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, &obj_meta);
+        std::printf("Detected %d objects\n", obj_meta.size);
+
+        // Requeue the buffer back to the capture queue
+        if (ioctl(fd, VIDIOC_QBUF, &buffer_info) < 0) {
+            std::fprintf(stderr, "Failed to requeue buffer\n");
+            return false;
+        }    
+        return true;
     }
-
-    std::cout << "Captured frame of size: " << buffer_info.bytesused << " bytes" << std::endl;
-
-    // Wrap the raw buffer data in a Mat.
-    // Note: Ensure that the width (640) and height (480) match your device settings.
-    cv::Mat yuyv(480, 640, CV_8UC2, buffer);
-    if (yuyv.empty()) {
-        std::fprintf(stderr, "Captured frame is empty\n");
-        // Requeue the buffer before returning if possible.
-        ioctl(fd, VIDIOC_QBUF, &buffer_info);
-        return false;
-    }
-
-    // Resize the image to the desired input size for YOLO detection.
-    cv::Mat resized_yuyv;
-    std::cout << "Resizing YUYV frame..." << std::endl;
-    cv::resize(yuyv, resized_yuyv, cv::Size(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT));
-    if (resized_yuyv.empty()) {
-        std::fprintf(stderr, "Resized image is empty\n");
-        ioctl(fd, VIDIOC_QBUF, &buffer_info);
-        return false;
-    }
-
-    // Convert from YUYV to BGR format.
-    // This conversion flag is correct if your data is in YUYV format.
-    cv::Mat bgr;
-    try {
-        cv::cvtColor(resized_yuyv, bgr, cv::COLOR_YUV2BGR_YUYV);
-    } catch (const cv::Exception& e) {
-        std::fprintf(stderr, "Error converting color: %s\n", e.what());
-        ioctl(fd, VIDIOC_QBUF, &buffer_info);
-        return false;
-    }
-
-    if (bgr.empty()) {
-        std::fprintf(stderr, "BGR image is empty after conversion\n");
-        ioctl(fd, VIDIOC_QBUF, &buffer_info);
-        return false;
-    }
-
-    // Save the converted frame to disk for verification
-    std::string filename = "resized.jpg";
-    if (!cv::imwrite(filename, bgr)) {
-        std::fprintf(stderr, "Failed to save frame to %s\n", filename.c_str());
-        ioctl(fd, VIDIOC_QBUF, &buffer_info);
-        return false;
-    }
-    std::cout << "Saved frame to " << filename << std::endl;
-
-    // Convert the resized YUYV image to your application's VIDEO_FRAME_INFO_S format
-    VIDEO_FRAME_INFO_S frameInfo = convertYUYVMatToVideoFrameInfo(resized_yuyv);
-    std::cout << "Converted to VIDEO_FRAME_INFO_S" << std::endl;
-
-    // Perform object detection using YOLOv8
-    cvtdl_object_t obj_meta = {0};
-    CVI_TDL_Detection(tdl_handle, &frameInfo, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, &obj_meta);
-    std::printf("Detected %d objects\n", obj_meta.size);
-
-    // Requeue the buffer back to the capture queue
-    if (ioctl(fd, VIDIOC_QBUF, &buffer_info) < 0) {
-        std::fprintf(stderr, "Failed to requeue buffer\n");
-        return false;
-    }
-    
-    return true;
-}
-
 
     void stop() {
         if (fd >= 0) {
             int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
             ioctl(fd, VIDIOC_STREAMOFF, &type);
-            munmap(buffer, 640 * 480 * 2);
+            munmap(buffer, CAMERA_WIDTH * CAMERA_HEIGHT * 2);
             close(fd);
         }
     }
@@ -238,8 +238,8 @@ private:
 
 void initModel() {
     printf("init model\n");
-    int vpssgrp_width = 640;
-    int vpssgrp_height = 480;
+    int vpssgrp_width = CAMERA_WIDTH;
+    int vpssgrp_height = CAMERA_HEIGHT;
     CVI_S32 ret = MMF_INIT_HELPER2(vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1,
                                    vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1);
     if (ret != CVI_TDL_SUCCESS) { 

@@ -212,16 +212,6 @@ void flashUserLED(int times, int interval_ms) {
     }
 }
 
-// Print current user LED status on terminal
-void printUserLEDStatus() {
-    std::ifstream fs(std::string(USER_LED_PATH) + "/trigger");
-    std::string line;
-    while (std::getline(fs, line)) {
-        std::cout << "current user led status: " << line << std::endl; // Display current trigger status
-    }
-    fs.close();
-}
-
 // Clean up resources gracefully.
 void cleanUp() {
     cap.release();
