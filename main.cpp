@@ -38,22 +38,24 @@
 void sendMat(cv::Mat image);
 
 // Constants
-constexpr size_t BUFFER_SIZE = 4096;
 constexpr const char* WIFI_CONFIG_FILE_NAME = "wifi_config";
-constexpr int NO_CHANGE_FRAME_LIMIT = 10;
-constexpr double CHANGE_THRESHOLD_PERCENT = 0.10;
+constexpr const int NO_CHANGE_FRAME_LIMIT = 10;
+constexpr const double CHANGE_THRESHOLD_PERCENT = 0.10;
 constexpr const char* INTERFACE_NAME = "wlan0";
 constexpr const char* USER_LED_PATH = "/sys/class/leds/led-user";
 
 // YOLO defines
 constexpr const char* MODEL_FILE_NAME = "detect.cvimodel";
-constexpr int MODEL_CLASS_CNT = 3;  // underline, highlight, pen
-constexpr double MODEL_THRESH = 0.5;
-constexpr double MODEL_NMS_THRESH = 0.5;
-constexpr int INPUT_FRAME_WIDTH = 320;
-constexpr int INPUT_FRAME_HEIGHT = 320;
-constexpr int MAX_FRAME_WIDTH = 2560;
-constexpr int MAX_FRAME_HEIGHT = 1440;
+constexpr const int MODEL_CLASS_CNT = 3;  // underline, highlight, pen
+constexpr const double MODEL_THRESH = 0.5;
+constexpr const double MODEL_NMS_THRESH = 0.5;
+constexpr const int INPUT_FRAME_WIDTH = 320;
+constexpr const int INPUT_FRAME_HEIGHT = 320;
+constexpr const int MAX_FRAME_WIDTH = 2560;
+constexpr const int MAX_FRAME_HEIGHT = 1440;
+
+// Use volatile sig_atomic_t for safe signal flag updates.
+volatile sig_atomic_t interrupted = 0;
 
 // Global variables
 std::string remoteBaseUrl = "";
@@ -63,9 +65,7 @@ cvitdl_handle_t tdl_handle = nullptr;
 std::string modelFilePath = "";
 std::string wifiConfigFilePath = "";
 
-// Use volatile sig_atomic_t for safe signal flag updates.
-volatile sig_atomic_t interrupted = 0;
-
+// For http requests
 struct HttpResponse {
     std::string body;
     long statusCode;
