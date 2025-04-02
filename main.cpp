@@ -172,7 +172,7 @@ HttpResponse httpPost(const std::string& url, const std::string& postBody) {
     return response;
 }
 
-// Set user LED on|off|flash|status
+// Set user LED on|off
 void setUserLEDTrigger(const std::string& trigger) {
     std::ofstream fs(std::string(USER_LED_PATH) + "/trigger");
     if (!fs) {
@@ -669,7 +669,7 @@ void setup() {
             std::string qrContent = detectQR();
             if (qrContent.empty()) {
                 flashUserLED(6, 250);
-                sleepSeconds(3);
+                //sleepSeconds(3);
                 continue;
             }
             printf("qr code detected: %s\n", qrContent.c_str());
@@ -711,6 +711,7 @@ void setup() {
         //no need to treat it as error since all 3 variables are ready
         std::cerr << "Unable to open file for writing: " << wifiConfigFilePath << std::endl;
     }
+    flashUserLED(6, 150);
     controlUserLED("off", 0);
 }
 
