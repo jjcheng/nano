@@ -39,15 +39,14 @@ void sendMat(cv::Mat image);
 
 // Constants
 constexpr size_t BUFFER_SIZE = 4096;
-constexpr const char* WIFI_CONFIG_FILE_PATH = "/root/wifi_config";
-constexpr const char* SAVE_IMAGE_PATH = "/root/captured.jpg";
+constexpr const char* WIFI_CONFIG_FILE_NAME = "wifi_config";
 constexpr int NO_CHANGE_FRAME_LIMIT = 10;
 constexpr double CHANGE_THRESHOLD_PERCENT = 0.10;
 constexpr const char* INTERFACE_NAME = "wlan0";
 constexpr const char* USER_LED_PATH = "/sys/class/leds/led-user";
 
 // YOLO defines
-constexpr const char* MODEL_FILE_PATH = "/root/detect.cvimodel";
+constexpr const char* MODEL_FILE_NAME = "detect.cvimodel";
 constexpr int MODEL_CLASS_CNT = 3;  // underline, highlight, pen
 constexpr double MODEL_THRESH = 0.5;
 constexpr double MODEL_NMS_THRESH = 0.5;
@@ -61,6 +60,8 @@ std::string remoteBaseUrl = "";
 cv::VideoCapture cap;
 cv::QRCodeDetector qrDecoder;
 cvitdl_handle_t tdl_handle = nullptr;
+std::string modelFilePath = "";
+std::string wifiConfigFilePath = "";
 
 // Use volatile sig_atomic_t for safe signal flag updates.
 volatile sig_atomic_t interrupted = 0;
@@ -106,6 +107,19 @@ std::string getIPAddress() {
     }
     close(fd);
     return inet_ntoa(((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr);
+}
+
+std::string getExecutableDirectory() {
+    char buffer[4096];
+    ssize_t count = readlink("/proc/self/exe", buffer, sizeof(buffer));
+    if (count != -1) {
+        std::string exePath(buffer, count);
+        size_t pos = exePath.find_last_of("/\\");
+        if (pos != std::string::npos) {
+            return exePath.substr(0, pos);
+        }
+    }
+    return "";
 }
 
 // Callback for libcurl to collect HTTP response data.
@@ -418,7 +432,7 @@ void initModel() {
     }
     CVI_TDL_SetModelThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_THRESH);
     CVI_TDL_SetModelNmsThreshold(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_NMS_THRESH);
-    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, MODEL_FILE_PATH);
+    ret = CVI_TDL_OpenModel(tdl_handle, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, modelFilePath.c_str());
     if (ret != CVI_SUCCESS) {
         throw std::runtime_error("Open model failed with error code: " + std::to_string(ret));
     }
@@ -613,7 +627,7 @@ void setup() {
     //start connections
     std::string ssid, password;
     bool isConnected = false;
-    std::ifstream file(WIFI_CONFIG_FILE_PATH);
+    std::ifstream file(wifiConfigFilePath);
     if (file) {
         std::stringstream buffer;
         buffer << file.rdbuf();
@@ -780,6 +794,8 @@ void loop() {
 }
 
 int main() {
+    modelFilePath = getExecutableDirectory() + "/" + std::string(MODEL_FILE_NAME);
+    wifiConfigFilePath = getExecutableDirectory() + "/" + std::string(WIFI_CONFIG_FILE_NAME);
     controlUserLED("on", 0);
     if(curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
         std::cerr << "curl_global_init() failed" << std::endl;
