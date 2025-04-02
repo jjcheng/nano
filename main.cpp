@@ -702,13 +702,13 @@ void setup() {
     }
     // now we have everything, save configuration to file
     std::string wifiConfig = "ssid:" + ssid + "\npassword:" + password + "\nremoteBaseUrl:" + remoteBaseUrl;
-    std::ofstream newFile(WIFI_CONFIG_FILE_PATH, std::ios::trunc);
+    std::ofstream newFile(wifiConfigFilePath, std::ios::trunc);
     if (newFile.is_open()) {
         newFile << wifiConfig;
         newFile.close();
     } else {
         //no need to treat it as error since all 3 variables are ready
-        std::cerr << "Unable to open file for writing: " << WIFI_CONFIG_FILE_PATH << std::endl;
+        std::cerr << "Unable to open file for writing: " << wifiConfigFilePath << std::endl;
     }
     controlUserLED("off", 0);
 }
