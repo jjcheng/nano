@@ -374,6 +374,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
             return true;
         }
         std::cout << "wifi not connected, retry after 3 seconds" << std::endl;
+        flashUserLED(3, 500);
         sleepSeconds(3);
     }
     return false;
