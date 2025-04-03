@@ -14,24 +14,24 @@
 #include "cvi_tdl.h"
 #include "cvi_tdl_media.h"
 
-#define DEVICE_DEFAULT "/dev/video0"
+constexpr const char* DEVICE = "/dev/video0";
 
 // YOLO defines
 constexpr const char* MODEL_FILE_PATH = "/root/detect.cvimodel";
-constexpr int MODEL_CLASS_CNT = 3; 
-constexpr double MODEL_THRESH = 0.5;
-constexpr double MODEL_NMS_THRESH = 0.5;
-constexpr int MODEL_INPUT_WIDTH = 320;
-constexpr int MODEL_INPUT_HEIGHT = 320;
-constexpr int MIN_FRAME_WIDTH = 640;
-constexpr int MIN_FRAME_HEIGHT = 480;
-constexpr int MAX_FRAME_WIDTH = 2592;
-constexpr int MAX_FRAME_HEIGHT = 1944;
+constexpr const int MODEL_CLASS_CNT = 3; 
+constexpr const double MODEL_THRESH = 0.5;
+constexpr const double MODEL_NMS_THRESH = 0.5;
+constexpr const int MODEL_INPUT_WIDTH = 320;
+constexpr const int MODEL_INPUT_HEIGHT = 320;
+constexpr const int MIN_FRAME_WIDTH = 640;
+constexpr const int MIN_FRAME_HEIGHT = 480;
+constexpr const int MAX_FRAME_WIDTH = 2592;
+constexpr const int MAX_FRAME_HEIGHT = 1944;
 
 cvitdl_handle_t tdl_handle = nullptr;
-int FD = -1;
+V4L2Camera camera(DEVICE);
 
-// Renamed function: now converts a BGR cv::Mat to VIDEO_FRAME_INFO_S.
+// Convert a BGR cv::Mat to VIDEO_FRAME_INFO_S.
 VIDEO_FRAME_INFO_S convertBGRMatToVideoFrameInfo(const cv::Mat &bgr) {
     // Ensure the input is not empty and has type CV_8UC3.
     if (bgr.empty() || bgr.type() != CV_8UC3) {
@@ -99,17 +99,16 @@ VIDEO_FRAME_INFO_S convertBGRMatToVideoFrameInfo(const cv::Mat &bgr) {
 
 class V4L2Camera {
 public:
-    explicit V4L2Camera(const std::string& device)
-        : device_path(device), fd(-1), buffer(nullptr), buffer_length(0) {}
-    
+   explicit V4L2Camera(const std::string& device)
+        : device_path(device), fd(-1) {}
+
     ~V4L2Camera() { stop(); }
 
-    bool start() {
+    void start() {
         // Use device_path provided by the constructor.
         fd = open(device_path.c_str(), O_RDWR);
         if (fd < 0) {
-            std::cerr << "Failed to open video device " << device_path << std::endl;
-            return false;
+            throw std::runtime_error("Failed to start camera");
         }
         // Set video format.
         v4l2_format format{};
@@ -119,123 +118,114 @@ public:
         format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
         format.fmt.pix.field = V4L2_FIELD_NONE;
         if (ioctl(fd, VIDIOC_S_FMT, &format) < 0) {
-            std::cerr << "Failed to set format" << std::endl;
-            return false;
+            throw std::runtime_error("Failed to set camera format");
         }
-        // Request a buffer.
-        v4l2_requestbuffers req{};
-        req.count = 1;
+        // Request buffers
+        struct v4l2_requestbuffers req = {};
+        req.count = 15; // Request 15 buffers
         req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         req.memory = V4L2_MEMORY_MMAP;
         if (ioctl(fd, VIDIOC_REQBUFS, &req) < 0) {
-            std::cerr << "Failed to request buffer" << std::endl;
-            return false;
+            close(fd);
+            throw std::runtime_error("Failed to request buffers");
         }
-        // Query the buffer.
-        v4l2_buffer buffer_info{};
-        buffer_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        buffer_info.memory = V4L2_MEMORY_MMAP;
-        buffer_info.index = 0;
-        if (ioctl(fd, VIDIOC_QUERYBUF, &buffer_info) < 0) {
-            std::cerr << "Failed to query buffer" << std::endl;
-            return false;
-        }
-        buffer_length = buffer_info.length;
-        buffer = mmap(nullptr, buffer_info.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buffer_info.m.offset);
-        if (buffer == MAP_FAILED) {
-            std::cerr << "Failed to mmap buffer" << std::endl;
-            return false;
-        }
-        // Queue the buffer.
-        if (ioctl(fd, VIDIOC_QBUF, &buffer_info) < 0) {
-            std::cerr << "Failed to queue buffer" << std::endl;
-            return false;
-        }
-        // Start streaming.
-        int type = buffer_info.type;
-        if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
-            std::cerr << "Failed to start stream" << std::endl;
-            return false;
-        }
-        printf("camera started\n");
-        return true;
-    }
-
-    bool captureFrame() {
-        // Dequeue the buffer containing the captured frame.
-        struct v4l2_buffer buffer_info = {};
-        for (int i = 0; i < 3; ++i) {
-            buffer_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-            buffer_info.memory = V4L2_MEMORY_MMAP;
-            buffer_info.index = i;
-            if (ioctl(fd, VIDIOC_QBUF, &buffer_info) < 0) {
-                std::fprintf(stderr, "Failed to queue buffer %d\n", i);
-                return false;
+        // Map and queue the buffers
+        for (int i = 0; i < req.count; ++i) {
+            struct v4l2_buffer buffer = {};
+            buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+            buffer.memory = V4L2_MEMORY_MMAP;
+            buffer.index = i;
+            //query buffer
+            if (ioctl(fd, VIDIOC_QUERYBUF, &buffer) < 0) {
+                close(fd);
+                throw std::runtime_error("Failed to query buffer");
+            }
+            //map buffer
+            void* buffer_start = mmap(nullptr, buffer.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buffer.m.offset);
+            if (buffer_start == MAP_FAILED) {
+                close(fd);
+                throw std::runtime_error("Failed to map buffer");
+            }
+            //queue buffer
+            if (ioctl(fd, VIDIOC_QBUF, &buffer) < 0) {
+                close(fd);
+                throw std::runtime_error("Failed to queue buffer");
             }
         }
+        // Start streaming
+        int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
+            close(fd);
+            throw std::runtime_error("Failed to start streaming");
+        }
+        printf("Camera started successfully\n");
+    }
 
-        std::cout << "Captured frame of size: " << buffer_info.bytesused << " bytes" << std::endl;
-        // Construct cv::Mat from the raw buffer.
-        // Note: The image is YUYV format, so rows=height, cols=width.
-        cv::Mat yuyv(MIN_FRAME_HEIGHT, MIN_FRAME_WIDTH, CV_8UC2, buffer);
+    cv::Mat capture() {
+        // Dequeue a filled buffer.
+        v4l2_buffer buf{};
+        buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        buf.memory = V4L2_MEMORY_MMAP;
+        if (ioctl(fd, VIDIOC_DQBUF, &buf) < 0) {
+            throw std::runtime_error("Failed to dequeue buffer");
+        }
+        // Use the mapped pointer corresponding to the dequeued buffer.
+        // Here we assume the captured image has dimensions MIN_FRAME_WIDTH x MIN_FRAME_HEIGHT.
+        // Adjust these if needed.
+        cv::Mat yuyv(MIN_FRAME_HEIGHT, MIN_FRAME_WIDTH, CV_8UC2, buffers[buf.index]);
         if (yuyv.empty()) {
             std::fprintf(stderr, "Captured frame is empty\n");
-            ioctl(fd, VIDIOC_QBUF, &buffer_info);  // Requeue the buffer.
-            return false;
+            // Requeue the buffer before returning.
+            ioctl(fd, VIDIOC_QBUF, &buf);
+            throw std::runtime_error("Captured frame is empty");
         }
-
         // Convert from YUYV to BGR format.
         cv::Mat bgr;
-        try {
-            cv::cvtColor(yuyv, bgr, cv::COLOR_YUV2BGR_YUYV);
-        } catch (const cv::Exception& e) {
-            std::fprintf(stderr, "Error converting color: %s\n", e.what());
-            ioctl(fd, VIDIOC_QBUF, &buffer_info);
-            return false;
-        }
+        cv::cvtColor(yuyv, bgr, cv::COLOR_YUV2BGR_YUYV);
         if (bgr.empty()) {
-            std::fprintf(stderr, "BGR image is empty after conversion\n");
-            ioctl(fd, VIDIOC_QBUF, &buffer_info);
-            return false;
+            ioctl(fd, VIDIOC_QBUF, &buf);
+            throw std::runtime_error("BGR image is empty after conversion");
         }
-
+        #ifdef DEBUG
         // Save the converted frame to disk for verification.
         std::string filename = "bgr.jpg";
         if (!cv::imwrite(filename, bgr)) {
-            std::fprintf(stderr, "Failed to save frame to %s\n", filename.c_str());
-            ioctl(fd, VIDIOC_QBUF, &buffer_info);
+            ioctl(fd, VIDIOC_QBUF, &buf);
             return false;
         }
         std::cout << "Saved frame to " << filename << std::endl;
-
-        // Convert the BGR image to VIDEO_FRAME_INFO_S format.
-        VIDEO_FRAME_INFO_S frameInfo = convertBGRMatToVideoFrameInfo(bgr);
-        std::cout << "Converted to VIDEO_FRAME_INFO_S" << std::endl;
-
-        // Perform object detection using YOLOv8.
-        cvtdl_object_t obj_meta = {0};
-        CVI_TDL_Detection(tdl_handle, &frameInfo, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, &obj_meta);
-        std::printf("Detected %d objects\n", obj_meta.size);
-
+        #endif
         // Requeue the buffer.
-        // if (ioctl(fd, VIDIOC_QBUF, &buffer_info) < 0) {
-        //     std::fprintf(stderr, "Failed to requeue buffer\n");
-        //     return false;
-        // }
-        if (ioctl(fd, VIDIOC_DQBUF, &buffer_info) < 0) {
-            std::fprintf(stderr, "Failed to dequeue buffer\n");
-            return false;
+        if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
+            throw std::runtime_error("Failed to requeue buffer");
         }
+        return bgr;
+    }
 
-        return true;
+    void setResolution(int width, int height, const char *pixelFormat) {
+        struct v4l2_format format;
+        memset(&format, 0, sizeof(format));
+        format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        format.fmt.pix.width = width;
+        format.fmt.pix.height = height;
+        format.fmt.pix.pixelformat = v4l2_fourcc(pixelFormat[0], pixelFormat[1], pixelFormat[2], pixelFormat[3]);
+        format.fmt.pix.field = V4L2_FIELD_INTERLACED;
+        //call ioctl
+        if (ioctl(fd, VIDIOC_S_FMT, &format) == -1) {
+            perror("Failed to set resolution");
+            throw std::runtime_error("Failed to set resolution");
+        }
     }
 
     void stop() {
         if (fd >= 0) {
             int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
             ioctl(fd, VIDIOC_STREAMOFF, &type);
-            if (buffer && buffer != MAP_FAILED) {
-                munmap(buffer, buffer_length);
+            // Unmap all buffers.
+            for (size_t i = 0; i < buffers.size(); ++i) {
+                if (buffers[i] && buffers[i] != MAP_FAILED) {
+                    munmap(buffers[i], buffer_lengths[i]);
+                }
             }
             close(fd);
             fd = -1;
@@ -245,14 +235,14 @@ public:
 private:
     std::string device_path;
     int fd;
-    void* buffer;
-    size_t buffer_length;
+    std::vector<void*> buffers;         // Store pointers for each mapped buffer.
+    std::vector<size_t> buffer_lengths;   // Store corresponding buffer lengths.
 };
 
 void initModel() {
     printf("init model\n");
-    int vpssgrp_width = MIN_FRAME_WIDTH;
-    int vpssgrp_height = MIN_FRAME_HEIGHT;
+    int vpssgrp_width = MAX_FRAME_WIDTH;
+    int vpssgrp_height = MAX_FRAME_HEIGHT;
     CVI_S32 ret = MMF_INIT_HELPER2(vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1,
                                    vpssgrp_width, vpssgrp_height, PIXEL_FORMAT_RGB_888, 1);
     if (ret != CVI_TDL_SUCCESS) { 
@@ -288,153 +278,37 @@ void initModel() {
     printf("model loaded\n");
 }
 
-bool startCamera() {
-    // Open the camera device
-    int fd = open(DEVICE_DEFAULT, O_RDWR);
-    if (fd < 0) {
-        perror("Failed to open video device");
-        return false;
-    }
-
-    // Set the video format
-    struct v4l2_format format = {};
-    format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    format.fmt.pix.width = MIN_FRAME_WIDTH;
-    format.fmt.pix.height = MIN_FRAME_HEIGHT;
-    format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV; // Use YUYV format
-    format.fmt.pix.field = V4L2_FIELD_NONE;
-
-    if (ioctl(fd, VIDIOC_S_FMT, &format) < 0) {
-        perror("Failed to set video format");
-        close(fd);
-        return false;
-    }
-
-    // Request buffers
-    struct v4l2_requestbuffers req = {};
-    req.count = 4; // Request 4 buffers
-    req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    req.memory = V4L2_MEMORY_MMAP;
-
-    if (ioctl(fd, VIDIOC_REQBUFS, &req) < 0) {
-        perror("Failed to request buffers");
-        close(fd);
-        return false;
-    }
-
-    // Map and queue the buffers
-    for (int i = 0; i < req.count; ++i) {
-        struct v4l2_buffer buffer = {};
-        buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        buffer.memory = V4L2_MEMORY_MMAP;
-        buffer.index = i;
-
-        if (ioctl(fd, VIDIOC_QUERYBUF, &buffer) < 0) {
-            perror("Failed to query buffer");
-            close(fd);
-            return false;
-        }
-
-        void* buffer_start = mmap(nullptr, buffer.length, PROT_READ | PROT_WRITE,
-                                  MAP_SHARED, fd, buffer.m.offset);
-        if (buffer_start == MAP_FAILED) {
-            perror("Failed to map buffer");
-            close(fd);
-            return false;
-        }
-
-        if (ioctl(fd, VIDIOC_QBUF, &buffer) < 0) {
-            perror("Failed to queue buffer");
-            close(fd);
-            return false;
-        }
-    }
-
-    // Start streaming
-    int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
-        perror("Failed to start streaming");
-        close(fd);
-        return false;
-    }
-
-    printf("Camera started successfully\n");
-
-    // Close the device after use (for demonstration purposes)
-    //close(fd);
-    FD = fd;
-    return true;
+void sendImage() {
+    camera.setResolution(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT, "BA10");
+    cv::Mat frame = camera.capture();
+    camera.setResolution(MIN_FRAME_WIDTH, MIN_FRAME_HEIGHT, "YUYV");
 }
 
-bool captureFrame(int fd, void* buffer_start[], size_t buffer_length[], int buffer_count) {
-    struct v4l2_buffer buffer_info = {};
-    buffer_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    buffer_info.memory = V4L2_MEMORY_MMAP;
-
-    // Dequeue a filled buffer
-    if (ioctl(fd, VIDIOC_DQBUF, &buffer_info) < 0) {
-        perror("Failed to dequeue buffer");
-        return false;
+void loop() {
+    while(1) {
+        cv::Mat bgr = camera.capture();
+        cv::Mat resized;
+        cv::resize(bgr, resized, cv::Size(MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT));
+        VIDEO_FRAME_INFO_S frameInfo = convertBGRMatToVideoFrameInfo(resized);
+        cvtdl_object_t obj_meta = {0};
+        CVI_TDL_Detection(tdl_handle, frameInfo, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, &obj_meta);
+        std::printf("Detected %d objects\n", obj_meta.size);
+        if (obj_meta.size > 0){ 
+            sendImage();
+        }
     }
-
-    // Access the captured frame data
-    printf("Captured frame of length: %u bytes\n", buffer_info.bytesused);
-
-    // Save the frame to a file (optional)
-    FILE* file = fopen("frame.raw", "wb");
-    if (file) {
-        fwrite(buffer_start[buffer_info.index], buffer_info.bytesused, 1, file);
-        fclose(file);
-        printf("Frame saved to 'frame.raw'\n");
-    } else {
-        perror("Failed to save frame");
-    }
-
-    // Requeue the buffer for further use
-    if (ioctl(fd, VIDIOC_QBUF, &buffer_info) < 0) {
-        perror("Failed to requeue buffer");
-        return false;
-    }
-
-    return true;
 }
 
 int main() {
     try {
-        // V4L2Camera camera(DEVICE_DEFAULT);
-        // if (!camera.start()) {
-        //     return -1;
-        // }
+        camera.start();
         initModel();
-        bool cameraStarted = startCamera();
-        // printf("warming up for 30 frames\n");
-        // for (int i = 0; i < 30; i++) {
-        //     camera.captureFrame();
-        // }
-        printf("start capturing\n");
-        const int buffer_count = 4;
-        void* buffer_start[buffer_count];
-        size_t buffer_length[buffer_count];
-        while (1) {
-            if (!captureFrame(FD, buffer_start, buffer_length, buffer_count)) {
-                fprintf(stderr, "Failed to capture frame\n");
-                close(FD);
-                return EXIT_FAILURE;
-            }
-        }
-        
-        // Stop streaming and cleanup
-        int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        ioctl(FD, VIDIOC_STREAMOFF, &type);
-        for (int i = 0; i < buffer_count; ++i) {
-            munmap(buffer_start[i], buffer_length[i]);
-        }
-        
-        close(FD);
-        return 0;
+        loop();
     }
     catch (const std::exception& ex) {
+        camera.stop();
         std::cerr << "FATAL ERROR: " << ex.what() << std::endl;
-        return -1;
+        return EXIT_FAILURE;
     }
+    return EXIT_SUCCESS;
 }
