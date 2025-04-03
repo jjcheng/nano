@@ -29,7 +29,6 @@ constexpr const int MAX_FRAME_WIDTH = 2592;
 constexpr const int MAX_FRAME_HEIGHT = 1944;
 
 cvitdl_handle_t tdl_handle = nullptr;
-V4L2Camera camera(DEVICE);
 
 // Convert a BGR cv::Mat to VIDEO_FRAME_INFO_S.
 VIDEO_FRAME_INFO_S convertBGRMatToVideoFrameInfo(const cv::Mat &bgr) {
@@ -38,11 +37,9 @@ VIDEO_FRAME_INFO_S convertBGRMatToVideoFrameInfo(const cv::Mat &bgr) {
         throw std::runtime_error("Input cv::Mat must be non-empty and of type CV_8UC3 (BGR format).");
     }
     VIDEO_FRAME_INFO_S frameInfo{};  // Zero initialize the structure.
-    
     // Set frame dimensions.
     frameInfo.stVFrame.u32Width  = static_cast<CVI_U32>(bgr.cols);
     frameInfo.stVFrame.u32Height = static_cast<CVI_U32>(bgr.rows);
-    
     // Set pixel format and related fields.
     // Here, we assume that the detection algorithm expects data in RGB.
     // If needed, you can convert BGR to RGB in the buffer.
@@ -239,6 +236,8 @@ private:
     std::vector<size_t> buffer_lengths;   // Store corresponding buffer lengths.
 };
 
+V4L2Camera camera(DEVICE);
+
 void initModel() {
     printf("init model\n");
     int vpssgrp_width = MAX_FRAME_WIDTH;
@@ -291,7 +290,7 @@ void loop() {
         cv::resize(bgr, resized, cv::Size(MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT));
         VIDEO_FRAME_INFO_S frameInfo = convertBGRMatToVideoFrameInfo(resized);
         cvtdl_object_t obj_meta = {0};
-        CVI_TDL_Detection(tdl_handle, frameInfo, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, &obj_meta);
+        CVI_TDL_Detection(tdl_handle, &frameInfo, CVI_TDL_SUPPORTED_MODEL_YOLOV8_DETECTION, &obj_meta);
         std::printf("Detected %d objects\n", obj_meta.size);
         if (obj_meta.size > 0){ 
             sendImage();
