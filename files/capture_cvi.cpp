@@ -2674,7 +2674,7 @@ static const struct sensor_cfg* get_sensor_cfg()
             2560,   // cap_width
             1440,   // cap_height
             30,     // cap_fps
-            WDR_MODE_NONE,      // cap_wdr_mode
+            WDR_MODE_2To1_LINE, // cap_wdr_mode
             BAYER_FORMAT_RG,    // cap_bayer_format
             BAYER_RGGB          // isp_bayer_format
         };

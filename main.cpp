@@ -534,10 +534,10 @@ void sendMat(cv::Mat image) {
     //     printf("no ip address\n");
     //     return;
     // }
-    printf("encoding image\n");
+    //printf("encoding image\n");
     auto start = std::chrono::high_resolution_clock::now();
     std::vector<uchar> buffer;
-    std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 90 };
+    std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 95 };
     if (!cv::imencode(".jpg", image, buffer, params)) {
         std::cerr << "Failed to encode image." << std::endl;
         return;
@@ -604,7 +604,7 @@ void sendImage() {
         return;
     }
     // Convert the NV21 frame to BGR cv::Mat.
-    printf("converting frame info to bgr\n");
+    // printf("converting frame info to bgr\n");
     auto start = std::chrono::high_resolution_clock::now();
     cv::Mat image = convertNV21FrameToBGR(*frameInfo, MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT, false);
     if (image.empty()) {
@@ -615,7 +615,7 @@ void sendImage() {
     }
     cap.releaseImagePtr();
     original_image_ptr = nullptr;
-    printf("conversion is done\n");
+    //printf("conversion is done\n");
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end - start;
     // Print the duration in seconds
