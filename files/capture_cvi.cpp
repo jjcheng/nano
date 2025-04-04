@@ -2594,14 +2594,14 @@ static const struct sns_ini_cfg* get_sns_ini_cfg()
         };
         return &lpirvnano;
         #else 
-        static const struct sns_ini_cfg lpirvnano = {
+        static const struct sns_ini_cfg lpirvnano = { //from maix_camera_mmf.cpp
             4,  // bus_id
             36, // sns_i2c_addr
             0,  // mipi_dev
-            {2, 3, 1, 4, 0},  // lane_id
-            {1, 1, 1, 1, 1},    // pn_swap
+            {2, 1, 3, 0, 4},    // lane_id
+            {0, 0, 0, 0, 0},    // pn_swap
             false,   // mclk_en
-            0       // mclk
+            0        // mclk
         };
         return &lpirvnano;
         #endif
@@ -2668,7 +2668,7 @@ static const struct sensor_cfg* get_sensor_cfg()
             BAYER_RGGB          // isp_bayer_format
         };
         return &gc4653;
-        #else
+        #else 
         // OS04A10 info
         static const struct sensor_cfg os04a10 = {
             2560,   // cap_width
@@ -3291,9 +3291,9 @@ int capture_cvi_impl::open(int width, int height, float fps)
         stPipeAttr.bIspBypass = CVI_FALSE;
         stPipeAttr.u32MaxW = cap_width;
         stPipeAttr.u32MaxH = cap_height;
-        stPipeAttr.enPixFmt = PIXEL_FORMAT_RGB_BAYER_10BPP;
+        stPipeAttr.enPixFmt = PIXEL_FORMAT_RGB_BAYER_12BPP;
         stPipeAttr.enCompressMode = COMPRESS_MODE_TILE;
-        stPipeAttr.enBitWidth = DATA_BITWIDTH_10;
+        stPipeAttr.enBitWidth = DATA_BITWIDTH_12;
         stPipeAttr.bNrEn = CVI_TRUE;// noise reduce
         stPipeAttr.bSharpenEn = CVI_FALSE;
         stPipeAttr.stFrameRate.s32SrcFrameRate = -1;
