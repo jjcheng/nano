@@ -49,3 +49,40 @@ Thanks for Stephan for the fix in flatbuffers!
 24. look for /install/upgrade.zip f
 25. pack_burn_image
 26. look for sophpi-duo-xxx.img
+
+## Build LicheeRV Nano Image with Jotter
+
+1. ssh to ubuntu 20.04
+2. cd /root/workspace
+3. git clone https://github.com/sipeed/LicheeRV-Nano-Build --depth=1
+4. cd LicheeRV-Nano-Build
+5. git clone https://github.com/sophgo/host-tools --depth=1
+6. cd host/ubuntu
+7. docker build -t licheervnano-build-ubuntu .
+8. docker run -v /root/workspace/LicheeRV-Nano-Build/:/workspace -it licheervnano-build-ubuntu /bin/bash
+9. cd /workspace
+10. source build/cvisetup.sh
+11. defconfig sg2002_licheervnano_sd
+12. git config --global --add safe.directory /workspace
+13. menuconfig
+14. shift + o
+15. paste /workspace/build/boards/sg200x/sg2002_licheervnano_sd/sg2002_licheervnano_sd_defconfig (change the settings there or replace it with the one in files folder)
+16. save to the same file
+17. cd buildroot
+18. make menuconfig
+19. Load -> paste /workspace/buildroot/configs/cvitek_SG200X_musl_riscv64_defconfig (change the settings there or replace it with the one in files folder)
+20. save to the same file
+21. cd /workspace/buildroot/board/cvitek/SG200X/overlay/usr
+22. mkdir bin
+23. cd bin
+24. copy Jotter, detect.cvimodel here
+25. chmod +x Jotter
+26. cd /workspace/buildroot/board/cvitek/SG200X/overlay/usr
+27. copy lib.zip here
+28. unzip lib.zip
+29. cd /workspace/buildroot/board/cvitek/SG200X/overlay/etc/init.d
+30. copy S99jotter here
+31. chmod +x S99jotter
+32. cd /workspace/
+33. clean_all
+34. build_all

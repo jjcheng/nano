@@ -1,0 +1,25 @@
+#!/bin/sh
+# /etc/init.d/S99jotter
+export LD_LIBRARY_PATH=/usr/lib/lib:/usr/lib/middleware_v2:/usr/lib/middleware_v2_3rd:/usr/lib/tpu_sdk_libs:/usr/lib
+echo "LD_LIBRARY_PATH is: $LD_LIBRARY_PATH"
+
+case "$1" in
+  start)
+    echo "Starting Jotter..."
+    /usr/bin/Jotter &   # run in background
+    ;;
+  stop)
+    echo "Stopping Jotter..."
+    killall Jotter
+    ;;
+  restart)
+    $0 stop
+    $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit 0

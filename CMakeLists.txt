@@ -8,7 +8,6 @@ SET(CMAKE_CXX_COMPILER "$ENV{COMPILER}/riscv64-unknown-linux-musl-g++")
 SET(CMAKE_C_LINK_EXECUTABLE "$ENV{COMPILER}/riscv64-unknown-linux-musl-ld")
 set(CMAKE_CXX_FLAGS "-march=rv64imafd -O3 -DSENSOR_GCORE_GC4653 -D_MIDDLEWARE_V2_ -DC906 -DUSE_TPU_IVE -fsigned-char -Wno-format-truncation -fdiagnostics-color=always -s")
 #-DNDEBUG
-#-DSENSOR_GCORE_GC4653
 
 include_directories(
     $ENV{SDK_PATH}/cvitek_tdl_sdk/include
