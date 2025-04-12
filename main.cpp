@@ -394,7 +394,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
         return false;
     }
     configFile << "ctrl_interface=/var/run/wpa_supplicant\n"
-               << "ap_scan=1\n"
+               << "update_config=1\n"
                << "network={\n"
                << "    ssid=\"" << ssid << "\"\n"
                << "    psk=\"" << password << "\"\n"
