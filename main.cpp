@@ -387,12 +387,15 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
         std::cerr << "Error: Unable to write /etc/wpa_supplicant.conf" << std::endl;
         return false;
     }
-    configFile << "ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev\n"
-               << "update_config=1\n"
+    configFile << "ctrl_interface=/var/run/wpa_supplicant\n"
+               << "ap_scan=1\n"
                << "network={\n"
                << "    ssid=\"" << ssid << "\"\n"
                << "    psk=\"" << password << "\"\n"
                << "    key_mgmt=WPA-PSK\n"
+               << "    proto=RSN\n"
+               << "    pairwise=CCMP\n"
+               << "    auth_alg=OPEN\n"
                << "}\n";
     configFile.close();
     return restartWpaApplicant();
