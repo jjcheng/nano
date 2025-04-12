@@ -140,6 +140,9 @@ HttpResponse httpGet(const std::string& url) {
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
+    // Set timeout options
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);           // Timeout for the entire request (in seconds)
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);     // Timeout for the connection phase (in seconds)
     CURLcode res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
         std::cerr << "libcurl error: " << curl_easy_strerror(res) << std::endl;
@@ -163,6 +166,9 @@ HttpResponse httpPost(const std::string& url, const std::string& postBody) {
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, postBody.size());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
+    // Set timeout options
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);           // Timeout for the entire request (in seconds)
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);     // Timeout for the connection phase (in seconds)
     CURLcode res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
         std::cerr << "HTTP POST failed: " << curl_easy_strerror(res) << std::endl;
