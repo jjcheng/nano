@@ -361,7 +361,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
                << "}\n";
     configFile.close();
     // Step 2: Start WPA Supplicant
-    std::string cmd = "wpa_supplicant -B -i " + INTERFACE_NAME + " -c /etc/wpa_supplicant.conf";
+    std::string cmd = "wpa_supplicant -B -i " + std::string(INTERFACE_NAME) + " -c /etc/wpa_supplicant.conf";
     if (system(cmd.c_str()) != 0) {
         std::cerr << "Error: Failed to start wpa_supplicant" << std::endl;
         return false;
