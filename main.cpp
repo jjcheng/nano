@@ -324,29 +324,29 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
     //     return true;
     // }
     // Read the existing configuration file if it exists.
-    // std::ifstream existingConfig("/etc/wpa_supplicant.conf");
-    // std::string fileContents;
-    // if (existingConfig) {
-    //     std::stringstream buffer;
-    //     buffer << existingConfig.rdbuf();
-    //     fileContents = buffer.str();
-    //     existingConfig.close();
-    //     // Create search strings to check for the given ssid and password.
-    //     std::string ssidLine = "ssid=\"" + ssid + "\"";
-    //     //std::string pskLine = "psk=\"" + password + "\"";
-    //     // If both the ssid and psk lines are found in the file, do not overwrite.
-    //     if (fileContents.find(ssidLine) != std::string::npos) {
-    //         //try 5 times to connect to ssid
-    //         for (int i = 0; i < 5; i++) {
-    //             if (getConnectedSSID() == ssid && !getIPAddress().empty()){
-    //                 std::cout << "SSID exists and is connected" << std::endl;
-    //                 return true;
-    //             }
-    //             std::cout << "SSID exists but not connected, retry after 5 seconds" << std::endl;
-    //             flashUserLED(4, 250);
-    //         }
-    //     }
-    // }
+    std::ifstream existingConfig("/etc/wpa_supplicant.conf");
+    std::string fileContents;
+    if (existingConfig) {
+        std::stringstream buffer;
+        buffer << existingConfig.rdbuf();
+        fileContents = buffer.str();
+        existingConfig.close();
+        // Create search strings to check for the given ssid and password.
+        std::string ssidLine = "ssid=\"" + ssid + "\"";
+        //std::string pskLine = "psk=\"" + password + "\"";
+        // If both the ssid and psk lines are found in the file, do not overwrite.
+        if (fileContents.find(ssidLine) != std::string::npos) {
+            //try 5 times to connect to ssid
+            for (int i = 0; i < 5; i++) {
+                if (getConnectedSSID() == ssid && !getIPAddress().empty()){
+                    std::cout << "SSID exists and is connected" << std::endl;
+                    return true;
+                }
+                std::cout << "SSID exists but not connected, retry after 5 seconds" << std::endl;
+                flashUserLED(4, 250);
+            }
+        }
+    }
     if (ssid.empty() || password.empty()) {
         return false;
     }
