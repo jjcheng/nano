@@ -323,14 +323,21 @@ bool fileExists(const std::string& path) {
     return (stat(path.c_str(), &buffer) == 0);
 }
 
-bool restartWpaApplicant() {
-    // Pre-check: Remove stale control file if it exists
-    std::string ctrlFile = "/var/run/wpa_supplicant/p2p-dev-" + std::string(INTERFACE_NAME);
-    if (fileExists(ctrlFile)) {
-        std::cout << "Removing stale control interface file: " << ctrlFile << std::endl;
-        std::string rmCmd = "rm -f " + ctrlFile;
+void deleteFile(const std::string* path) {
+    if (fileExists(path)) {
+        std::cout << "Removing file: " << path << std::endl;
+        std::string rmCmd = "rm -f " + path;
         system(rmCmd.c_str());
     }
+}
+
+bool restartWpaApplicant() {
+    // Pre-check: Remove stale control file if it exists
+    std::string p2pFile = "/var/run/wpa_supplicant/p2p-dev-" + std::string(INTERFACE_NAME);
+    deleteFile(p2pFile);
+    std::string wpaFile = "/var/run/wpa_supplicant/" + std::string(INTERFACE_NAME);
+    deleteFile(wpaFile);
+
     // Start WPA Supplicant
     std::string cmd = "wpa_supplicant -B -i " + std::string(INTERFACE_NAME) + " -c /etc/wpa_supplicant.conf";
     if (system(cmd.c_str()) != 0) {
