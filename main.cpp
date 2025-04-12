@@ -323,7 +323,7 @@ bool fileExists(const std::string& path) {
     return (stat(path.c_str(), &buffer) == 0);
 }
 
-void deleteFile(const std::string* path) {
+void deleteFile(const std::string& path) {
     if (fileExists(path)) {
         std::cout << "Removing file: " << path << std::endl;
         std::string rmCmd = "rm -f " + path;
