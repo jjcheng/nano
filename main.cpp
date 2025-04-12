@@ -407,6 +407,7 @@ bool connectToRemote() {
         printf("no remoteBaseUrl\n");
         return false;
     }
+    controlUserLED("flash", 250);
     printf("connecting to remote\n");
     std::string myIp = getIPAddress();
     std::string url = remoteBaseUrl + "/ping?ip=" + myIp;
@@ -418,6 +419,7 @@ bool connectToRemote() {
         }
         HttpResponse response = httpGet(url);
         if (response.statusCode == 200) {
+            controlUserLED("off", 0);
             return true;
         } else {
             std::cerr << "Remote connection failed, retry after 4 seconds" << std::endl;
