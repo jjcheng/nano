@@ -289,7 +289,6 @@ void openCamera(int width, int height) {
         cap.open(0);
         if (!cap.isOpened()) {
             std::cerr << "Failed to open camera; retrying in 3 seconds..." << std::endl;
-            //sleepSeconds(3);
             flashUserLED(3, 1000);
         } else {
             cv::Mat dummy;
@@ -339,9 +338,8 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
                     std::cout << "SSID exists and is connected" << std::endl;
                     return true;
                 }
-                std::cout << "SSID exists but not connected, retry after 3 seconds" << std::endl;
-                flashUserLED(3, 500);
-                sleepSeconds(3);
+                std::cout << "SSID exists but not connected, retry after 5 seconds" << std::endl;
+                flashUserLED(4, 250);
             }
         }
     }
@@ -354,7 +352,8 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
         std::cerr << "Error: Unable to write /etc/wpa_supplicant.conf" << std::endl;
         return false;
     }
-    configFile << "ctrl_interface=/var/run/wpa_supplicant\n"
+    configFile << "ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev\n"
+               << "update_config=1\n"
                << "network={\n"
                << "    ssid=\"" << ssid << "\"\n"
                << "    psk=\"" << password << "\"\n"
@@ -362,7 +361,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
                << "}\n";
     configFile.close();
     // Step 2: Start WPA Supplicant
-    std::string cmd = "wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant.conf";
+    std::string cmd = "wpa_supplicant -B -i " + INTERFACE_NAME + " -c /etc/wpa_supplicant.conf";
     if (system(cmd.c_str()) != 0) {
         std::cerr << "Error: Failed to start wpa_supplicant" << std::endl;
         return false;
@@ -374,8 +373,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
             return true;
         }
         std::cout << "wifi not connected, retry after 3 seconds" << std::endl;
-        flashUserLED(3, 500);
-        sleepSeconds(3);
+        flashUserLED(5, 250);
     }
     return false;
 }
@@ -391,16 +389,15 @@ bool connectToRemote() {
     int retries = 0;
     while(!interrupted) {
         retries++;
-        if(retries > 5) {
+        if(retries > 3) {
             return false;
         }
         HttpResponse response = httpGet(url);
         if (response.statusCode == 200) {
             return true;
         } else {
-            std::cerr << "Remote connection failed, retry after 3 seconds" << std::endl;
-            flashUserLED(3, 500);
-            sleepSeconds(3);
+            std::cerr << "Remote connection failed, retry after 4 seconds" << std::endl;
+            flashUserLED(6, 250);
         }
     }
     return false;
@@ -668,11 +665,9 @@ void setup() {
         while (!interrupted) {
             std::string qrContent = detectQR();
             if (qrContent.empty()) {
-                flashUserLED(6, 250);
-                //sleepSeconds(3);
+                flashUserLED(3, 100);
                 continue;
             }
-            printf("qr code detected: %s\n", qrContent.c_str());
             std::istringstream iss(qrContent);
             std::string line;
             while (std::getline(iss, line)) {
