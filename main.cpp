@@ -319,10 +319,10 @@ std::string getConnectedSSID() {
 
 // Connect to WiFi using system commands via wpa_cli
 bool connectToWifi(const std::string& ssid, const std::string& password) {
-    if (!ssid.empty() && getConnectedSSID() == ssid && !getIPAddress().empty()){
-        std::cout << "SSID exists and is connected" << std::endl;
-        return true;
-    }
+    // if (!ssid.empty() && getConnectedSSID() == ssid && !getIPAddress().empty()){
+    //     std::cout << "SSID exists and is connected" << std::endl;
+    //     return true;
+    // }
     // Read the existing configuration file if it exists.
     // std::ifstream existingConfig("/etc/wpa_supplicant.conf");
     // std::string fileContents;
@@ -350,7 +350,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
     if (ssid.empty() || password.empty()) {
         return false;
     }
-    // Step 1: Create WPA Supplicant Configuration File
+    // Step 1: Create WPA Supplicant Configuration File()
     std::ofstream configFile("/etc/wpa_supplicant.conf");
     if (!configFile) {
         std::cerr << "Error: Unable to write /etc/wpa_supplicant.conf" << std::endl;
