@@ -30,6 +30,7 @@
 #include <future>
 #include <thread>
 #include <cstring>
+#include <sys/stat.h>
 
 // Custom includes
 #include "cvi_tdl.h"
