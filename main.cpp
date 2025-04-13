@@ -358,10 +358,12 @@ bool restartWpaApplicant(const std::string& ssid, const std::string& password) {
                << "network={\n"
                << "    ssid=\"" << ssid << "\"\n"
                << "    psk=\"" << password << "\"\n"
-               << "    key_mgmt=WPA-PSK\n"
-               << "    proto=RSN\n"
-               << "    pairwise=CCMP\n"
-               << "    auth_alg=OPEN\n"
+            //    << "    key_mgmt=WPA-PSK\n"
+            //    << "    proto=RSN\n"
+            //    << "    pairwise=CCMP\n"
+            //    << "    auth_alg=OPEN\n"
+               << "    key_mgmt=SAE\n"
+               << "    ieee80211w=2\n"
                << "}\n";
     configFile.close();
     // Start WPA Supplicant in the background with the new configuration.
