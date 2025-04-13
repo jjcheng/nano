@@ -400,24 +400,9 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
                     std::cout << "SSID exists and is connected" << std::endl;
                     return true;
                 }
-                flashUserLED(4, 250);
-                sleepSeconds(1);
+                flashUserLED(4, 100);
                 retries++;
             }
-            // std::cout << "SSID exists but not connected, attempting to restart wpa_supplicant" << std::endl;
-            // if (restartWpaApplicant(ssid, password)) {
-            //     // After restarting, wait again for IP assignment.
-            //     for (int i = 0; i < 5; i++) {
-            //         sleepSeconds(1);
-            //         if (!getIPAddress().empty()){
-            //             std::cout << "WiFi connected after restarting wpa_supplicant" << std::endl;
-            //             return true;
-            //         }
-            //         std::cout << "WiFi not connected, retrying..." << std::endl;
-            //         flashUserLED(5, 250);
-            //     }
-            //     return false;
-            // } 
         }
     }
     // If configuration didn't exist or didn't match, create a fresh setup.
@@ -431,7 +416,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
             return true;
         }
         std::cout << "WiFi not connected, retrying after 3 seconds..." << std::endl;
-        flashUserLED(5, 250);
+        flashUserLED(4, 100);
     }
     return false;
 }
@@ -442,7 +427,7 @@ bool connectToRemote() {
         printf("no remoteBaseUrl\n");
         return false;
     }
-    controlUserLED("flash", 250);
+    //controlUserLED("flash", 250);
     printf("connecting to remote\n");
     std::string myIp = getIPAddress();
     std::string url = remoteBaseUrl + "/ping?ip=" + myIp;
@@ -458,7 +443,7 @@ bool connectToRemote() {
             return true;
         } else {
             std::cerr << "Remote connection failed, retry after 4 seconds" << std::endl;
-            flashUserLED(6, 250);
+            flashUserLED(5, 100);
         }
     }
     return false;
@@ -767,7 +752,7 @@ void setup() {
         //no need to treat it as error since all 3 variables are ready
         std::cerr << "Unable to open file for writing: " << wifiConfigFilePath << std::endl;
     }
-    flashUserLED(6, 150);
+    //flashUserLED(6, 150);
 }
 
 // Main processing loop: compare frames and trigger detection if no significant change.
