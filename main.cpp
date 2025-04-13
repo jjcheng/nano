@@ -339,6 +339,7 @@ void deleteFile(const std::string& path) {
 
 bool restartWpaApplicant() {
     // Pre-check: Remove stale control file if it exists
+    //ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
     std::string p2pFile = "/var/run/wpa_supplicant/p2p-dev-" + std::string(INTERFACE_NAME);
     deleteFile(p2pFile);
     std::string wpaFile = "/var/run/wpa_supplicant/" + std::string(INTERFACE_NAME);
@@ -393,7 +394,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
         std::cerr << "Error: Unable to write /etc/wpa_supplicant.conf" << std::endl;
         return false;
     }
-    configFile << "ctrl_interface=DIR=/run/wpa_supplicant GROUP=netdev\n"
+    configFile << "ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev\n"
                << "update_config=1\n"
                << "network={\n"
                << "    ssid=\"" << ssid << "\"\n"
