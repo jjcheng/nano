@@ -339,6 +339,11 @@ void deleteFile(const std::string& path) {
 
 bool restartWpaApplicant() {
     // Pre-check: Remove stale control file if it exists
+    std::string killCmd = "pkill -f 'wpa_supplicant.*-i " + std::string(INTERFACE_NAME) + "'";
+    if (system(killCmd.c_str()) != 0) {
+        std::cerr << "Warning: No running wpa_supplicant process was terminated, or an error occurred." << std::endl;
+    }
+    sleepSeconds(1);
     //ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
     std::string p2pFile = "/var/run/wpa_supplicant/p2p-dev-" + std::string(INTERFACE_NAME);
     deleteFile(p2pFile);
@@ -740,7 +745,6 @@ void setup() {
         std::cerr << "Unable to open file for writing: " << wifiConfigFilePath << std::endl;
     }
     flashUserLED(6, 150);
-    controlUserLED("off", 0);
 }
 
 // Main processing loop: compare frames and trigger detection if no significant change.
