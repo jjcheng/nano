@@ -40,7 +40,7 @@ void sendMat(cv::Mat image);
 
 // Constants
 constexpr const char* WIFI_CONFIG_FILE_NAME = "wifi_config";
-constexpr const char* WPA_SUPPLICANT_PATH = "/etc/jotter_wpa_supplicant.conf"
+constexpr const char* WPA_SUPPLICANT_PATH = "/etc/jotter_wpa_supplicant.conf";
 constexpr const int NO_CHANGE_FRAME_LIMIT = 10;
 constexpr const double CHANGE_THRESHOLD_PERCENT = 0.10;
 constexpr const char* INTERFACE_NAME = "wlan0";
