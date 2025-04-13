@@ -329,16 +329,14 @@ bool fileExists(const std::string& path) {
     return (stat(path.c_str(), &buffer) == 0);
 }
 
-void deleteFile(const std::string& path) {
-    if (fileExists(path)) {
-        std::cout << "Removing file: " << path << std::endl;
-        std::string rmCmd = "rm -f " + path;
-        system(rmCmd.c_str());
-    }
+// Remove the control files using system call directly with wildcard
+void removeStaleWpaFiles() {
+    std::string rmCmd = "rm -f /var/run/wpa_supplicant/*";
+    system(rmCmd.c_str());
 }
 
-void restartWpaApplicant() {
-    // Pre-check: Remove stale control file if it exists
+bool restartWpaApplicant(const std::string& ssid, const std::string& password) {
+    // First, try to terminate any existing process for the given interface.
     std::string killCmd = "wpa_cli -i " + std::string(INTERFACE_NAME) + " terminate";
     int killResult = system(killCmd.c_str());
     if (killResult != 0) {
@@ -346,10 +344,9 @@ void restartWpaApplicant() {
                   << INTERFACE_NAME << std::endl;
     }
     sleepSeconds(1);
-    //ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
-    std::string wpaFile = "/var/run/wpa_supplicant/*";
-    deleteFile(wpaFile);
-    // Write new configuration file
+    // Remove stale control files
+    removeStaleWpaFiles();
+    // Write new configuration file with updated SSID and password.
     std::ofstream configFile("/etc/wpa_supplicant.conf");
     if (!configFile) {
         std::cerr << "Error: Unable to write /etc/wpa_supplicant.conf" << std::endl;
@@ -366,26 +363,21 @@ void restartWpaApplicant() {
                << "    auth_alg=OPEN\n"
                << "}\n";
     configFile.close();
-    // Start WPA Supplicant
-    std::string cmd = "wpa_supplicant -B -i " + std::string(INTERFACE_NAME) + " -c /etc/wpa_supplicant.conf";
-    if (system(cmd.c_str()) != 0) {
+    // Start WPA Supplicant in the background with the new configuration.
+    std::string startCmd = "wpa_supplicant -B -i " + std::string(INTERFACE_NAME) + " -c /etc/wpa_supplicant.conf";
+    if (system(startCmd.c_str()) != 0) {
         std::cerr << "Error: Failed to start wpa_supplicant" << std::endl;
-        //return false;
+        return false;
     }
-    // Retry loop to check for IP address
-    // for (int i = 0; i < 5; i++) {
-    //     if (!getIPAddress().empty()){
-    //         std::cout << "WiFi connected" << std::endl;
-    //         return true;
-    //     }
-    //     std::cout << "WiFi not connected, retry after 3 seconds" << std::endl;
-    //     flashUserLED(5, 250);
-    // }
-    // return false;
+    return true;
 }
 
 bool connectToWifi(const std::string& ssid, const std::string& password) {
-    // Read the existing config (if any)
+    if (ssid.empty() || password.empty()) {
+        std::cerr << "Error: SSID or password is empty." << std::endl;
+        return false;
+    }
+    // Read the existing configuration file (if any) to see if the WiFi settings already exist.
     std::ifstream existingConfig("/etc/wpa_supplicant.conf");
     std::string fileContents;
     if (existingConfig) {
@@ -393,28 +385,55 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
         buffer << existingConfig.rdbuf();
         fileContents = buffer.str();
         existingConfig.close();
+
         std::string ssidLine = "ssid=\"" + ssid + "\"";
         std::string passwordLine = "psk=\"" + password + "\"";
-        if (fileContents.find(ssidLine) != std::string::npos && fileContents.find(passwordLine) != std::string::npos) {
+        if (fileContents.find(ssidLine) != std::string::npos &&
+            fileContents.find(passwordLine) != std::string::npos) {
             int retries = 0;
-            while(retries < 3) {
-                retries++;
+            // Wait a few times for an IP address to be assigned.
+            while (retries < 3) {
                 if (!getIPAddress().empty()){
                     std::cout << "SSID exists and is connected" << std::endl;
                     return true;
                 }
                 flashUserLED(4, 250);
+                sleepSeconds(1);
+                retries++;
             }
-            printf("SSID exist but not connected, restarting wpa applicant\n");
-            // if (restartWpaApplicant()) {
-            //     return true;
-            // }
+            std::cout << "SSID exists but not connected, attempting to restart wpa_supplicant" << std::endl;
+            if (restartWpaApplicant(ssid, password)) {
+                // After restarting, wait again for IP assignment.
+                for (int i = 0; i < 5; i++) {
+                    sleepSeconds(1);
+                    if (!getIPAddress().empty()){
+                        std::cout << "WiFi connected after restarting wpa_supplicant" << std::endl;
+                        return true;
+                    }
+                    std::cout << "WiFi not connected, retrying..." << std::endl;
+                    flashUserLED(5, 250);
+                }
+                return false;
+            } else {
+                return false;
+            }
         }
     }
-    if (ssid.empty() || password.empty()) {
+    // If configuration didn't exist or didn't match, create a fresh setup.
+    if (!restartWpaApplicant(ssid, password)) {
         return false;
     }
-    restartWpaApplicant();
+    // Retry loop to check for IP address
+    for (int i = 0; i < 5; i++) {
+        sleepSeconds(1);
+        if (!getIPAddress().empty()){
+            std::cout << "WiFi connected" << std::endl;
+            return true;
+        }
+        std::cout << "WiFi not connected, retrying after 3 seconds..." << std::endl;
+        flashUserLED(5, 250);
+    }
+    return false;
 }
 
 // Connect to a remote server by sending a ping request.
