@@ -40,6 +40,7 @@ void sendMat(cv::Mat image);
 
 // Constants
 constexpr const char* WIFI_CONFIG_FILE_NAME = "wifi_config";
+constexpr const char* WPA_SUPPLICANT_PATH = "/etc/jotter_wpa_supplicant.conf"
 constexpr const int NO_CHANGE_FRAME_LIMIT = 10;
 constexpr const double CHANGE_THRESHOLD_PERCENT = 0.10;
 constexpr const char* INTERFACE_NAME = "wlan0";
@@ -347,9 +348,9 @@ bool restartWpaApplicant(const std::string& ssid, const std::string& password) {
     // Remove stale control files
     removeStaleWpaFiles();
     // Write new configuration file with updated SSID and password.
-    std::ofstream configFile("/etc/wpa_supplicant.conf");
+    std::ofstream configFile("/etc/jotter_wpa_supplicant.conf");
     if (!configFile) {
-        std::cerr << "Error: Unable to write /etc/wpa_supplicant.conf" << std::endl;
+        std::cerr << "Error: Unable to write /etc/jotter_wpa_supplicant.conf" << std::endl;
         return false;
     }
     configFile << "ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev\n"
@@ -364,7 +365,7 @@ bool restartWpaApplicant(const std::string& ssid, const std::string& password) {
                << "}\n";
     configFile.close();
     // Start WPA Supplicant in the background with the new configuration.
-    std::string startCmd = "wpa_supplicant -B -i " + std::string(INTERFACE_NAME) + " -c /etc/wpa_supplicant.conf";
+    std::string startCmd = "wpa_supplicant -B -i " + std::string(INTERFACE_NAME) + " -c /etc/jotter_wpa_supplicant.conf";
     if (system(startCmd.c_str()) != 0) {
         std::cerr << "Error: Failed to start wpa_supplicant" << std::endl;
         return false;
@@ -378,7 +379,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
         return false;
     }
     // Read the existing configuration file (if any) to see if the WiFi settings already exist.
-    std::ifstream existingConfig("/etc/wpa_supplicant.conf");
+    std::ifstream existingConfig("/etc/jotter_wpa_supplicant.conf");
     std::string fileContents;
     if (existingConfig) {
         std::stringstream buffer;
@@ -401,22 +402,20 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
                 sleepSeconds(1);
                 retries++;
             }
-            std::cout << "SSID exists but not connected, attempting to restart wpa_supplicant" << std::endl;
-            if (restartWpaApplicant(ssid, password)) {
-                // After restarting, wait again for IP assignment.
-                for (int i = 0; i < 5; i++) {
-                    sleepSeconds(1);
-                    if (!getIPAddress().empty()){
-                        std::cout << "WiFi connected after restarting wpa_supplicant" << std::endl;
-                        return true;
-                    }
-                    std::cout << "WiFi not connected, retrying..." << std::endl;
-                    flashUserLED(5, 250);
-                }
-                return false;
-            } else {
-                return false;
-            }
+            // std::cout << "SSID exists but not connected, attempting to restart wpa_supplicant" << std::endl;
+            // if (restartWpaApplicant(ssid, password)) {
+            //     // After restarting, wait again for IP assignment.
+            //     for (int i = 0; i < 5; i++) {
+            //         sleepSeconds(1);
+            //         if (!getIPAddress().empty()){
+            //             std::cout << "WiFi connected after restarting wpa_supplicant" << std::endl;
+            //             return true;
+            //         }
+            //         std::cout << "WiFi not connected, retrying..." << std::endl;
+            //         flashUserLED(5, 250);
+            //     }
+            //     return false;
+            // } 
         }
     }
     // If configuration didn't exist or didn't match, create a fresh setup.
@@ -425,7 +424,6 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
     }
     // Retry loop to check for IP address
     for (int i = 0; i < 5; i++) {
-        sleepSeconds(1);
         if (!getIPAddress().empty()){
             std::cout << "WiFi connected" << std::endl;
             return true;
