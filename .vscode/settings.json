@@ -107,6 +107,11 @@
     "stop_token": "cpp",
     "*.ipp": "cpp",
     "*.inc": "cpp",
-    "hash_set": "cpp"
+    "hash_set": "cpp",
+    "compare": "cpp",
+    "concepts": "cpp",
+    "iterator": "cpp",
+    "type_traits": "cpp",
+    "utility": "cpp"
   }
 }
