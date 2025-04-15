@@ -325,6 +325,41 @@ std::string getConnectedSSID() {
     return result.empty() ? "" : result;
 }
 
+// Helper function to execute a shell command and capture its output.
+std::string execCommand(const std::string &cmd) {
+    // Buffer for storing command output.
+    std::array<char, 128> buffer;
+    std::string result;
+    // Open a pipe to run the command in read ("r") mode.
+    FILE *pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    // Read from the pipe until end-of-file.
+    try {
+        while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+            result += buffer.data();
+        }
+    } catch (...) {
+        pclose(pipe);
+        throw;
+    }
+    // Close the pipe.
+    pclose(pipe);
+    return result;
+}
+
+// Function that runs wpa_passphrase with given SSID and passphrase,
+// and returns the resulting wpa_supplicant configuration.
+std::string generateWpaSupplicantConfig(const std::string &ssid, const std::string &passphrase) {
+    // Build the command.
+    // Note the use of double quotes around ssid and passphrase for safety.
+    std::string command = "wpa_passphrase \"" + ssid + "\" \"" + passphrase + "\"";
+    // Execute the command and capture its output.
+    std::string config = execCommand(command);   
+    return config;
+}
+
 bool fileExists(const std::string& path) {
     struct stat buffer;
     return (stat(path.c_str(), &buffer) == 0);
@@ -353,18 +388,20 @@ bool restartWpaApplicant(const std::string& ssid, const std::string& password) {
         std::cerr << "Error: Unable to write /etc/jotter_wpa_supplicant.conf" << std::endl;
         return false;
     }
-    configFile << "ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev\n"
+    std::string network = generateWpaSupplicantConfig(ssid, password);
+    configFile << "ctrl_interface=/var/run/wpa_supplicant\n"
                << "update_config=1\n"
-               << "network={\n"
-               << "    ssid=\"" << ssid << "\"\n"
-               << "    psk=\"" << password << "\"\n"
-            //    << "    key_mgmt=WPA-PSK\n"
-            //    << "    proto=RSN\n"
-            //    << "    pairwise=CCMP\n"
-            //    << "    auth_alg=OPEN\n"
-            //    << "    key_mgmt=WPA-PSK\n"
-            //    << "    ieee80211w=2\n"
-               << "}\n";
+               << network
+            //    << "network={\n"
+            //    << "    ssid=\"" << ssid << "\"\n"
+            //    << "    psk=\"" << password << "\"\n"
+            // //    << "    key_mgmt=WPA-PSK\n"
+            // //    << "    proto=RSN\n"
+            // //    << "    pairwise=CCMP\n"
+            // //    << "    auth_alg=OPEN\n"
+            // //    << "    key_mgmt=WPA-PSK\n"
+            // //    << "    ieee80211w=2\n"
+            //    << "}\n";
     configFile.close();
     // Start WPA Supplicant in the background with the new configuration.
     std::string startCmd = "wpa_supplicant -B -i " + std::string(INTERFACE_NAME) + " -c /etc/jotter_wpa_supplicant.conf";
@@ -400,7 +437,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
                     std::cout << "SSID exists and is connected" << std::endl;
                     return true;
                 }
-                flashUserLED(4, 100);
+                flashUserLED(4, 150);
                 retries++;
             }
         }
@@ -416,7 +453,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
             return true;
         }
         std::cout << "WiFi not connected, retrying after 3 seconds..." << std::endl;
-        flashUserLED(4, 100);
+        flashUserLED(4, 150);
     }
     return false;
 }
@@ -443,7 +480,7 @@ bool connectToRemote() {
             return true;
         } else {
             std::cerr << "Remote connection failed, retry after 4 seconds" << std::endl;
-            flashUserLED(5, 100);
+            flashUserLED(5, 150);
         }
     }
     return false;
@@ -711,7 +748,7 @@ void setup() {
         while (!interrupted) {
             std::string qrContent = detectQR();
             if (qrContent.empty()) {
-                flashUserLED(3, 100);
+                flashUserLED(3, 150);
                 continue;
             }
             std::istringstream iss(qrContent);
@@ -752,7 +789,6 @@ void setup() {
         //no need to treat it as error since all 3 variables are ready
         std::cerr << "Unable to open file for writing: " << wifiConfigFilePath << std::endl;
     }
-    //flashUserLED(6, 150);
 }
 
 // Main processing loop: compare frames and trigger detection if no significant change.
