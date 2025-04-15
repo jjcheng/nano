@@ -306,60 +306,6 @@ void openCamera(int width, int height) {
     }
 }
 
-// Get currently connected ssid
-std::string getConnectedSSID() {
-    std::string cmd = "iw dev " + std::string(INTERFACE_NAME) + " link | grep ssid | awk '{print substr($0, index($0,$2))}'";
-    char buffer[128];
-    std::string result;
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        std::cerr << "Error: Failed to run command" << std::endl;
-        return "";
-    }
-    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-        result += buffer;
-    }
-    pclose(pipe);
-    // Trim any trailing newline or spaces
-    result.erase(result.find_last_not_of(" \n\r\t") + 1);
-    return result.empty() ? "" : result;
-}
-
-// Helper function to execute a shell command and capture its output.
-std::string execCommand(const std::string &cmd) {
-    // Buffer for storing command output.
-    std::array<char, 128> buffer;
-    std::string result;
-    // Open a pipe to run the command in read ("r") mode.
-    FILE *pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        throw std::runtime_error("popen() failed!");
-    }
-    // Read from the pipe until end-of-file.
-    try {
-        while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-            result += buffer.data();
-        }
-    } catch (...) {
-        pclose(pipe);
-        throw;
-    }
-    // Close the pipe.
-    pclose(pipe);
-    return result;
-}
-
-// Function that runs wpa_passphrase with given SSID and passphrase,
-// and returns the resulting wpa_supplicant configuration.
-std::string generateWpaSupplicantConfig(const std::string &ssid, const std::string &passphrase) {
-    // Build the command.
-    // Note the use of double quotes around ssid and passphrase for safety.
-    std::string command = "wpa_passphrase \"" + ssid + "\" \"" + passphrase + "\"";
-    // Execute the command and capture its output.
-    std::string config = execCommand(command);   
-    return config;
-}
-
 bool fileExists(const std::string& path) {
     struct stat buffer;
     return (stat(path.c_str(), &buffer) == 0);
@@ -371,7 +317,7 @@ void removeStaleWpaFiles() {
     system(rmCmd.c_str());
 }
 
-bool restartWpaApplicant(const std::string& ssid, const std::string& password) {
+bool restartWpaApplicant(const std::string& ssidHex, const std::string& password) {
     // First, try to terminate any existing process for the given interface.
     std::string killCmd = "wpa_cli -i " + std::string(INTERFACE_NAME) + " terminate";
     int killResult = system(killCmd.c_str());
@@ -382,26 +328,25 @@ bool restartWpaApplicant(const std::string& ssid, const std::string& password) {
     sleepSeconds(1);
     // Remove stale control files
     removeStaleWpaFiles();
-    // Write new configuration file with updated SSID and password.
+    // Write new configuration file with updated ssidHex and password.
     std::ofstream configFile("/etc/jotter_wpa_supplicant.conf");
     if (!configFile) {
         std::cerr << "Error: Unable to write /etc/jotter_wpa_supplicant.conf" << std::endl;
         return false;
     }
-    std::string network = generateWpaSupplicantConfig(ssid, password);
     configFile << "ctrl_interface=/var/run/wpa_supplicant\n"
                << "update_config=1\n"
-               << network;
-            //    << "network={\n"
-            //    << "    ssid=\"" << ssid << "\"\n"
-            //    << "    psk=\"" << password << "\"\n"
-            // //    << "    key_mgmt=WPA-PSK\n"
-            // //    << "    proto=RSN\n"
-            // //    << "    pairwise=CCMP\n"
-            // //    << "    auth_alg=OPEN\n"
-            // //    << "    key_mgmt=WPA-PSK\n"
-            // //    << "    ieee80211w=2\n"
-            //    << "}\n";
+               << "network={\n"
+               << "    ssid_hex=\"" << ssidHex << "\"\n"
+               << "    psk=\"" << password << "\"\n"
+               << "    priority=1\n"
+            //    << "    key_mgmt=WPA-PSK\n"
+            //    << "    proto=RSN\n"
+            //    << "    pairwise=CCMP\n"
+            //    << "    auth_alg=OPEN\n"
+            //    << "    key_mgmt=WPA-PSK\n"
+            //    << "    ieee80211w=2\n"
+               << "}\n";
     configFile.close();
     // Start WPA Supplicant in the background with the new configuration.
     std::string startCmd = "wpa_supplicant -B -i " + std::string(INTERFACE_NAME) + " -c /etc/jotter_wpa_supplicant.conf";
@@ -412,9 +357,9 @@ bool restartWpaApplicant(const std::string& ssid, const std::string& password) {
     return true;
 }
 
-bool connectToWifi(const std::string& ssid, const std::string& password) {
-    if (ssid.empty() || password.empty()) {
-        std::cerr << "Error: SSID or password is empty." << std::endl;
+bool connectToWifi(const std::string& ssidHex, const std::string& password) {
+    if (ssidHex.empty() || password.empty()) {
+        std::cerr << "Error: SSIDHex or password is empty." << std::endl;
         return false;
     }
     // Read the existing configuration file (if any) to see if the WiFi settings already exist.
@@ -426,7 +371,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
         fileContents = buffer.str();
         existingConfig.close();
 
-        std::string ssidLine = "ssid=\"" + ssid + "\"";
+        std::string ssidLine = "ssid_hex=\"" + ssidHex + "\"";
         std::string passwordLine = "psk=\"" + password + "\"";
         if (fileContents.find(ssidLine) != std::string::npos &&
             fileContents.find(passwordLine) != std::string::npos) {
@@ -434,7 +379,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
             // Wait a few times for an IP address to be assigned.
             while (retries < 3) {
                 if (!getIPAddress().empty()){
-                    std::cout << "SSID exists and is connected" << std::endl;
+                    std::cout << "ssidhex exists and is connected" << std::endl;
                     return true;
                 }
                 flashUserLED(4, 150);
@@ -443,7 +388,7 @@ bool connectToWifi(const std::string& ssid, const std::string& password) {
         }
     }
     // If configuration didn't exist or didn't match, create a fresh setup.
-    if (!restartWpaApplicant(ssid, password)) {
+    if (!restartWpaApplicant(ssidHex, password)) {
         return false;
     }
     // Retry loop to check for IP address
@@ -706,7 +651,7 @@ void sendImage() {
 // Setup before running main logics
 void setup() {
     //start connections
-    std::string ssid, password;
+    std::string ssidHex, password;
     bool isConnected = false;
     std::ifstream file(wifiConfigFilePath);
     if (file) {
@@ -723,8 +668,8 @@ void setup() {
                 if (key == "remoteBaseUrl") {
                     remoteBaseUrl = value;
                 }
-                else if (key == "ssid") {
-                    ssid = value;
+                else if (key == "ssidHex") {
+                    ssidHex = value;
                 }
                 else if (key == "password") {
                     password = value;
@@ -732,7 +677,7 @@ void setup() {
             }
         }
         // Try to connect using read credentials.
-        isConnected = connectToWifi(ssid, password);
+        isConnected = connectToWifi(ssidHex, password);
         if (isConnected) {
             printf("connected to wifi\n");
             isConnected = connectToRemote();
@@ -758,8 +703,8 @@ void setup() {
                 if (pos != std::string::npos) {
                     std::string key = trim(line.substr(0, pos));
                     std::string value = trim(line.substr(pos + 1));
-                    if (key == "ssid") {
-                        ssid = value;
+                    if (key == "ssidHex") {
+                        ssidHex = value;
                     } else if (key == "password") {
                         password = value;
                     } else if (key == "remoteBaseUrl") {
@@ -767,10 +712,10 @@ void setup() {
                     }
                 }
             }
-            if (ssid.empty() || password.empty() || remoteBaseUrl.empty()) {
+            if (ssidHex.empty() || password.empty() || remoteBaseUrl.empty()) {
                 continue;
             }
-            if (!connectToWifi(ssid, password)) {
+            if (!connectToWifi(ssidHex, password)) {
                 continue;
             }
             if (!connectToRemote()) {
@@ -780,7 +725,7 @@ void setup() {
         }
     }
     // now we have everything, save configuration to file
-    std::string wifiConfig = "ssid:" + ssid + "\npassword:" + password + "\nremoteBaseUrl:" + remoteBaseUrl;
+    std::string wifiConfig = "ssidHex:" + ssidHex + "\npassword:" + password + "\nremoteBaseUrl:" + remoteBaseUrl;
     std::ofstream newFile(wifiConfigFilePath, std::ios::trunc);
     if (newFile.is_open()) {
         newFile << wifiConfig;
