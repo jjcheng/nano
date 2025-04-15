@@ -391,7 +391,7 @@ bool restartWpaApplicant(const std::string& ssid, const std::string& password) {
     std::string network = generateWpaSupplicantConfig(ssid, password);
     configFile << "ctrl_interface=/var/run/wpa_supplicant\n"
                << "update_config=1\n"
-               << network
+               << network;
             //    << "network={\n"
             //    << "    ssid=\"" << ssid << "\"\n"
             //    << "    psk=\"" << password << "\"\n"
