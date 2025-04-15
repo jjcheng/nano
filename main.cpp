@@ -337,15 +337,13 @@ bool restartWpaApplicant(const std::string& ssidHex, const std::string& password
     configFile << "ctrl_interface=/var/run/wpa_supplicant\n"
                << "update_config=1\n"
                << "network={\n"
-               << "    ssid_hex=\"" << ssidHex << "\"\n"
+               << "    ssid=" << ssidHex << "\n"
                << "    psk=\"" << password << "\"\n"
                << "    priority=1\n"
-            //    << "    key_mgmt=WPA-PSK\n"
+               << "    key_mgmt=WPA-PSK\n"
             //    << "    proto=RSN\n"
             //    << "    pairwise=CCMP\n"
             //    << "    auth_alg=OPEN\n"
-            //    << "    key_mgmt=WPA-PSK\n"
-            //    << "    ieee80211w=2\n"
                << "}\n";
     configFile.close();
     // Start WPA Supplicant in the background with the new configuration.
